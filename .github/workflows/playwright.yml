@@ -1,0 +1,87 @@
+name: Pharmacy E2E Tests
+
+on:
+  # Manual trigger — anyone with repo access can run this from the Actions tab
+  workflow_dispatch:
+    inputs:
+      pharmacy:
+        description: "Which pharmacy to test?"
+        required: true
+        type: choice
+        default: "All pharmacies"
+        options:
+          - All pharmacies
+          - Pharmaease
+          - Paydens
+          - The Pharmacist
+
+# Required for deploying the HTML report to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Prevent multiple concurrent deployments to Pages
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Run tests (${{ inputs.pharmacy }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        # continue-on-error so the report is always uploaded even when tests fail
+        continue-on-error: true
+        run: |
+          if [ "${{ inputs.pharmacy }}" = "All pharmacies" ]; then
+            npx playwright test
+          else
+            npx playwright test --project="${{ inputs.pharmacy }}"
+          fi
+
+      # --- Artifacts ---------------------------------------------------------
+      - name: Upload HTML report as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ inputs.pharmacy }}
+          path: playwright-report/
+          retention-days: 30
+
+      # Upload to Pages (overwrites previous run — always shows latest report)
+      - name: Prepare Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        if: always()
+        with:
+          path: playwright-report/
+
+  # Deploy the uploaded Pages artifact
+  deploy-report:
+    name: Publish report to GitHub Pages
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

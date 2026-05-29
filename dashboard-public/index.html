@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playwright Test Runner</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎭</text></svg>" />
+    <style>
+      /* ── Design tokens (Playwright --ui inspired) ─────────────────────────── */
+      :root {
+        --sidebar-w: 300px;
+        --header-h: 48px;
+        --statusbar-h: 32px;
+
+        /* Surfaces */
+        --clr-header:     #2e3047;
+        --clr-sidebar:    #f6f7fb;
+        --clr-main:       #ffffff;
+        --clr-log:        #1a1b26;
+        --clr-border:     #e2e5ed;
+        --clr-border-drk: #3a3d55;
+
+        /* Text */
+        --clr-txt-sidebar: #3a3d55;
+        --clr-txt-header:  #e8eaf6;
+        --clr-txt-muted:   #8a93a6;
+        --clr-txt-log:     #a9b1d6;
+
+        /* Accents */
+        --clr-accent:   #5b8cff;
+        --clr-pass:     #22c55e;
+        --clr-fail:     #ef4444;
+        --clr-skip:     #f59e0b;
+        --clr-running:  #5b8cff;
+
+        /* Misc */
+        --radius-sm: 4px;
+        --radius:    8px;
+        --shadow:    0 1px 4px rgba(0,0,0,.12);
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        font-size: 13px; line-height: 1.5; background: var(--clr-sidebar); color: var(--clr-txt-sidebar); }
+
+      /* ── Header ─────────────────────────────────────────────────────────── */
+      #header {
+        position: fixed; inset: 0 0 auto 0; height: var(--header-h);
+        background: var(--clr-header); display: flex; align-items: center;
+        gap: 12px; padding: 0 16px; z-index: 100;
+        border-bottom: 1px solid var(--clr-border-drk);
+      }
+      #header .logo { font-size: 20px; line-height: 1; flex-shrink: 0; }
+      #header .title { font-size: 15px; font-weight: 600; color: var(--clr-txt-header); flex-shrink: 0; }
+      #pharmacy-select {
+        flex: 0 0 220px; height: 28px; padding: 0 8px; border-radius: var(--radius-sm);
+        border: 1px solid var(--clr-border-drk); background: #3a3d55; color: var(--clr-txt-header);
+        font-size: 13px; cursor: pointer; outline: none;
+      }
+      #pharmacy-select:focus { border-color: var(--clr-accent); }
+      #header .spacer { flex: 1; }
+      .hdr-btn {
+        height: 28px; padding: 0 14px; border-radius: var(--radius-sm);
+        border: none; font-size: 12px; font-weight: 600; cursor: pointer;
+        display: flex; align-items: center; gap: 6px; transition: opacity .15s;
+      }
+      .hdr-btn:disabled { opacity: .45; cursor: default; }
+      #btn-run-all { background: var(--clr-accent); color: #fff; }
+      #btn-stop    { background: var(--clr-fail);   color: #fff; }
+
+      /* ── Status bar ──────────────────────────────────────────────────────── */
+      #statusbar {
+        position: fixed; inset: var(--header-h) 0 auto 0; height: var(--statusbar-h);
+        background: #fff; border-bottom: 1px solid var(--clr-border);
+        display: flex; align-items: center; padding: 0 16px; gap: 10px; z-index: 99;
+        font-size: 12px; color: var(--clr-txt-muted);
+      }
+      #status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background .3s; }
+      #status-dot.idle    { background: #ccc; }
+      #status-dot.running { background: var(--clr-running); animation: pulse 1s infinite; }
+      #status-dot.pass    { background: var(--clr-pass); }
+      #status-dot.fail    { background: var(--clr-fail); }
+      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+      #status-text { flex: 1; font-weight: 500; color: var(--clr-txt-sidebar); }
+      #status-counts span { margin-left: 10px; }
+      #status-counts .cnt-pass { color: var(--clr-pass); }
+      #status-counts .cnt-fail { color: var(--clr-fail); }
+      #status-counts .cnt-skip { color: var(--clr-skip); }
+
+      /* ── Body layout ─────────────────────────────────────────────────────── */
+      #body {
+        position: fixed;
+        inset: calc(var(--header-h) + var(--statusbar-h)) 0 0 0;
+        display: flex;
+      }
+
+      /* ── Sidebar ─────────────────────────────────────────────────────────── */
+      #sidebar {
+        width: var(--sidebar-w); min-width: var(--sidebar-w); height: 100%;
+        background: var(--clr-sidebar); border-right: 1px solid var(--clr-border);
+        display: flex; flex-direction: column; overflow: hidden;
+      }
+      #search-wrap {
+        padding: 10px 12px; border-bottom: 1px solid var(--clr-border); flex-shrink: 0;
+      }
+      #search {
+        width: 100%; height: 28px; padding: 0 10px; border-radius: var(--radius-sm);
+        border: 1px solid var(--clr-border); background: #fff; font-size: 12px;
+        outline: none; color: var(--clr-txt-sidebar);
+      }
+      #search:focus { border-color: var(--clr-accent); }
+      #tree {
+        flex: 1; overflow-y: auto; padding: 8px 0;
+      }
+
+      /* Tree nodes */
+      .tree-file {
+        padding: 0; margin: 2px 0;
+      }
+      .tree-file-hdr {
+        display: flex; align-items: center; gap: 6px;
+        padding: 5px 12px; cursor: pointer; border-radius: var(--radius-sm);
+        margin: 0 4px; font-weight: 600; font-size: 12px;
+        color: var(--clr-txt-sidebar); user-select: none;
+        transition: background .12s;
+      }
+      .tree-file-hdr:hover { background: #ecedf5; }
+      .tree-file-hdr .chevron { font-size: 9px; transition: transform .2s; flex-shrink: 0; }
+      .tree-file-hdr.open .chevron { transform: rotate(90deg); }
+      .tree-file-hdr .file-icon { font-size: 13px; flex-shrink: 0; }
+      .tree-file-hdr .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tree-file-hdr .run-file-btn {
+        opacity: 0; font-size: 10px; padding: 1px 6px; border-radius: 3px;
+        border: 1px solid var(--clr-accent); color: var(--clr-accent);
+        background: transparent; cursor: pointer; transition: opacity .15s; flex-shrink: 0;
+      }
+      .tree-file-hdr:hover .run-file-btn { opacity: 1; }
+
+      .tree-children { display: none; padding-left: 0; }
+      .tree-children.open { display: block; }
+
+      .tree-suite-hdr {
+        display: flex; align-items: center; gap: 6px;
+        padding: 4px 12px 4px 28px; cursor: pointer;
+        margin: 0 4px; border-radius: var(--radius-sm);
+        font-size: 11px; font-weight: 600; color: var(--clr-txt-muted);
+        text-transform: uppercase; letter-spacing: .04em; user-select: none;
+        transition: background .12s;
+      }
+      .tree-suite-hdr:hover { background: #ecedf5; }
+      .tree-suite-hdr .chevron { font-size: 8px; transition: transform .2s; }
+      .tree-suite-hdr.open .chevron { transform: rotate(90deg); }
+
+      .tree-test {
+        display: flex; align-items: center; gap: 8px;
+        padding: 5px 12px 5px 40px; cursor: pointer;
+        margin: 0 4px; border-radius: var(--radius-sm);
+        font-size: 12px; color: var(--clr-txt-sidebar);
+        transition: background .12s;
+      }
+      .tree-test.suite-direct { padding-left: 28px; }
+      .tree-test:hover { background: #ecedf5; }
+      .tree-test.active { background: #e8eeff; color: var(--clr-accent); }
+
+      .tree-test .test-dot {
+        width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        background: #ccc; transition: background .3s;
+      }
+      .tree-test .test-dot.running { background: var(--clr-running); animation: pulse 1s infinite; }
+      .tree-test .test-dot.pass    { background: var(--clr-pass); }
+      .tree-test .test-dot.fail    { background: var(--clr-fail); }
+      .tree-test .test-dot.skip    { background: var(--clr-skip); }
+
+      .tree-test .test-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tree-test .run-test-btn {
+        opacity: 0; font-size: 10px; padding: 1px 6px; border-radius: 3px;
+        border: 1px solid var(--clr-accent); color: var(--clr-accent);
+        background: transparent; cursor: pointer; transition: opacity .15s; flex-shrink: 0;
+      }
+      .tree-test:hover .run-test-btn { opacity: 1; }
+
+      /* Empty state */
+      .empty-state {
+        padding: 40px 20px; text-align: center; color: var(--clr-txt-muted); font-size: 12px;
+      }
+
+      /* ── Main panel ──────────────────────────────────────────────────────── */
+      #main {
+        flex: 1; min-width: 0; height: 100%;
+        display: flex; flex-direction: column; background: var(--clr-main);
+        overflow: hidden;
+      }
+
+      /* Browser chrome (the fake browser frame) */
+      #browser-chrome {
+        flex-shrink: 0; background: #292b3f; padding: 10px 12px 0;
+        display: flex; flex-direction: column; gap: 8px;
+      }
+      #browser-dots {
+        display: flex; gap: 6px; align-items: center;
+      }
+      #browser-dots span {
+        width: 10px; height: 10px; border-radius: 50%;
+      }
+      #browser-dots .dot-r { background: #ff5f57; }
+      #browser-dots .dot-y { background: #ffbd2e; }
+      #browser-dots .dot-g { background: #28c840; }
+      #browser-url {
+        flex: 1; height: 22px; background: #3a3d55; border-radius: 11px;
+        border: none; font-size: 11px; color: #a9b1d6; padding: 0 12px;
+        margin-left: 10px; outline: none; width: calc(100% - 10px);
+      }
+      #browser-url-row { display: flex; align-items: center; }
+
+      #viewport {
+        background: #1a1b26; height: 240px; display: flex; align-items: center;
+        justify-content: center; position: relative; overflow: hidden;
+      }
+      #viewport-placeholder {
+        display: flex; flex-direction: column; align-items: center; gap: 10px;
+        color: #4a4d6a; font-size: 13px; user-select: none;
+      }
+      #viewport-placeholder .icon { font-size: 36px; }
+      #video-player {
+        width: 100%; height: 100%; object-fit: contain; display: none;
+      }
+
+      /* Tab bar */
+      #tab-bar {
+        display: flex; border-bottom: 1px solid var(--clr-border);
+        background: #f6f7fb; flex-shrink: 0;
+      }
+      .tab {
+        padding: 6px 16px; font-size: 12px; font-weight: 500;
+        cursor: pointer; color: var(--clr-txt-muted); border-bottom: 2px solid transparent;
+        transition: color .15s, border-color .15s;
+      }
+      .tab.active { color: var(--clr-accent); border-bottom-color: var(--clr-accent); }
+      .tab:hover:not(.active) { color: var(--clr-txt-sidebar); }
+
+      /* Output / log panel */
+      #output-panel {
+        flex: 1; min-height: 0; background: var(--clr-log); overflow: hidden;
+        display: flex; flex-direction: column;
+      }
+      #log {
+        flex: 1; overflow-y: auto; padding: 10px 14px;
+        font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+        font-size: 12px; line-height: 1.7; color: var(--clr-txt-log);
+        white-space: pre-wrap; word-break: break-word;
+      }
+      .log-pass  { color: #9ece6a; }
+      .log-fail  { color: #f7768e; }
+      .log-warn  { color: #e0af68; }
+      .log-start { color: #7aa2f7; font-style: italic; }
+      .log-done  { font-weight: 700; }
+
+      /* Artifacts panel */
+      #artifacts-panel {
+        display: none; flex: 1; min-height: 0; overflow-y: auto;
+        padding: 16px; background: var(--clr-main);
+      }
+      #artifacts-panel h3 { margin: 0 0 12px; font-size: 13px; color: var(--clr-txt-sidebar); }
+      .artifact-section { margin-bottom: 20px; }
+      .artifact-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+        color: var(--clr-txt-muted); margin: 0 0 8px; }
+      .artifact-list { display: flex; flex-direction: column; gap: 6px; }
+      .artifact-item {
+        display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+        border: 1px solid var(--clr-border); border-radius: var(--radius-sm);
+        background: #f6f7fb; font-size: 12px; color: var(--clr-txt-sidebar);
+        text-decoration: none; transition: border-color .15s, background .15s;
+      }
+      .artifact-item:hover { border-color: var(--clr-accent); background: #eef0ff; }
+      .artifact-item .icon { font-size: 15px; flex-shrink: 0; }
+      .artifact-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .artifact-empty { color: var(--clr-txt-muted); font-size: 12px; padding: 8px 0; }
+
+      /* Loading spinner */
+      #loading {
+        display: flex; align-items: center; gap: 8px;
+        padding: 20px; color: var(--clr-txt-muted); font-size: 12px;
+        justify-content: center;
+      }
+      .spinner {
+        width: 16px; height: 16px; border-radius: 50%;
+        border: 2px solid var(--clr-border); border-top-color: var(--clr-accent);
+        animation: spin .7s linear infinite; flex-shrink: 0;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* Scrollbars */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #c8cce0; border-radius: 3px; }
+      #log::-webkit-scrollbar-thumb { background: #3a3d55; }
+
+      /* Responsive */
+      @media (max-width: 680px) {
+        :root { --sidebar-w: 240px; }
+        #viewport { height: 160px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ── Header ──────────────────────────────────────────────────────────── -->
+    <header id="header">
+      <div class="logo">🎭</div>
+      <div class="title">Playwright</div>
+      <select id="pharmacy-select" title="Select pharmacy">
+        <option value="">Loading pharmacies…</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="hdr-btn" id="btn-run-all" disabled title="Run all tests for selected pharmacy">
+        ▶ Run All
+      </button>
+      <button class="hdr-btn" id="btn-stop" style="display:none" title="Stop current run">
+        ■ Stop
+      </button>
+    </header>
+
+    <!-- ── Status bar ──────────────────────────────────────────────────────── -->
+    <div id="statusbar">
+      <div id="status-dot" class="idle"></div>
+      <span id="status-text">Select a pharmacy to load tests</span>
+      <div id="status-counts">
+        <span class="cnt-pass" id="cnt-pass" style="display:none"></span>
+        <span class="cnt-fail" id="cnt-fail" style="display:none"></span>
+        <span class="cnt-skip" id="cnt-skip" style="display:none"></span>
+      </div>
+    </div>
+
+    <!-- ── Body ────────────────────────────────────────────────────────────── -->
+    <div id="body">
+
+      <!-- Sidebar: test tree -->
+      <nav id="sidebar">
+        <div id="search-wrap">
+          <input id="search" type="search" placeholder="Filter tests…" autocomplete="off" />
+        </div>
+        <div id="tree">
+          <div class="empty-state">Select a pharmacy to load tests</div>
+        </div>
+      </nav>
+
+      <!-- Main panel -->
+      <main id="main">
+
+        <!-- Browser chrome + viewport -->
+        <div id="browser-chrome">
+          <div id="browser-url-row">
+            <div id="browser-dots">
+              <span class="dot-r"></span>
+              <span class="dot-y"></span>
+              <span class="dot-g"></span>
+            </div>
+            <input id="browser-url" readonly value="about:blank" />
+          </div>
+          <div id="viewport">
+            <div id="viewport-placeholder">
+              <div class="icon">🖥️</div>
+              <div>Run a test to see video playback here</div>
+            </div>
+            <video id="video-player" controls></video>
+          </div>
+        </div>
+
+        <!-- Tab bar -->
+        <div id="tab-bar">
+          <div class="tab active" data-tab="output">Output</div>
+          <div class="tab" data-tab="artifacts">Artifacts</div>
+        </div>
+
+        <!-- Output panel -->
+        <div id="output-panel">
+          <div id="log"><span class="log-start">Ready. Select a pharmacy and run a test.</span></div>
+        </div>
+
+        <!-- Artifacts panel -->
+        <div id="artifacts-panel">
+          <h3>Run Artifacts</h3>
+          <div class="artifact-section">
+            <h4>📹 Videos</h4>
+            <div class="artifact-list" id="artifact-videos">
+              <div class="artifact-empty">No videos yet. Run a test first.</div>
+            </div>
+          </div>
+          <div class="artifact-section">
+            <h4>🔍 Traces</h4>
+            <div class="artifact-list" id="artifact-traces">
+              <div class="artifact-empty">No traces yet. Run a test first.</div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let allTests = [];
+    let currentPharmacy = null;
+    let activeES = null;
+    let running = false;
+    let filterText = "";
+
+    // ── DOM refs ───────────────────────────────────────────────────────────────
+    const pharmacySel  = document.getElementById("pharmacy-select");
+    const btnRunAll    = document.getElementById("btn-run-all");
+    const btnStop      = document.getElementById("btn-stop");
+    const statusDot    = document.getElementById("status-dot");
+    const statusText   = document.getElementById("status-text");
+    const cntPass      = document.getElementById("cnt-pass");
+    const cntFail      = document.getElementById("cnt-fail");
+    const cntSkip      = document.getElementById("cnt-skip");
+    const treeEl       = document.getElementById("tree");
+    const searchEl     = document.getElementById("search");
+    const logEl        = document.getElementById("log");
+    const videoEl      = document.getElementById("video-player");
+    const vpHolder     = document.getElementById("viewport-placeholder");
+    const browserUrl   = document.getElementById("browser-url");
+    const artifVideos  = document.getElementById("artifact-videos");
+    const artifTraces  = document.getElementById("artifact-traces");
+
+    // ── Tabs ───────────────────────────────────────────────────────────────────
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const which = tab.dataset.tab;
+        document.getElementById("output-panel").style.display   = which === "output"    ? "flex" : "none";
+        document.getElementById("artifacts-panel").style.display = which === "artifacts" ? "flex" : "none";
+      });
+    });
+
+    // ── Status helpers ─────────────────────────────────────────────────────────
+    function setStatus(state, text) {
+      statusDot.className = state;
+      statusText.textContent = text;
+    }
+    function hideCounts() {
+      [cntPass, cntFail, cntSkip].forEach(el => el.style.display = "none");
+    }
+    function showCounts(passed, failed, skipped) {
+      if (passed) { cntPass.textContent = `✓ ${passed}`; cntPass.style.display = ""; }
+      if (failed) { cntFail.textContent = `✗ ${failed}`; cntFail.style.display = ""; }
+      if (skipped) { cntSkip.textContent = `⊘ ${skipped}`; cntSkip.style.display = ""; }
+    }
+
+    // ── Log helpers ────────────────────────────────────────────────────────────
+    function appendLog(text, className) {
+      const line = document.createElement("div");
+      if (className) line.className = className;
+      line.textContent = text;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    function clearLog() {
+      logEl.innerHTML = "";
+    }
+    function classifyLog(text) {
+      if (/passed|✓|PASS/i.test(text)) return "log-pass";
+      if (/failed|✘|FAIL|Error|error/i.test(text)) return "log-fail";
+      if (/warn|Warning/i.test(text)) return "log-warn";
+      return "";
+    }
+
+    // ── Pharmacy load ──────────────────────────────────────────────────────────
+    async function loadPharmacies() {
+      try {
+        const res = await fetch("/api/pharmacies");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const list = await res.json();
+        pharmacySel.innerHTML = '<option value="">Select pharmacy…</option>';
+        list.forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p.name;
+          opt.textContent = p.name;
+          pharmacySel.appendChild(opt);
+        });
+        setStatus("idle", "Select a pharmacy to load tests");
+      } catch (e) {
+        pharmacySel.innerHTML = '<option value="">Error loading pharmacies</option>';
+        setStatus("idle", "Failed to load pharmacies: " + e.message);
+      }
+    }
+
+    pharmacySel.addEventListener("change", () => {
+      const name = pharmacySel.value;
+      if (!name) { treeEl.innerHTML = '<div class="empty-state">Select a pharmacy to load tests</div>'; btnRunAll.disabled = true; return; }
+      currentPharmacy = name;
+      loadTests(name);
+    });
+
+    // ── Test list load ─────────────────────────────────────────────────────────
+    async function loadTests(pharmacyName) {
+      treeEl.innerHTML = '<div id="loading"><div class="spinner"></div>Loading tests…</div>';
+      btnRunAll.disabled = true;
+      setStatus("idle", `Loading tests for ${pharmacyName}…`);
+      try {
+        const res = await fetch(`/api/tests?project=${encodeURIComponent(pharmacyName)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        allTests = await res.json();
+        setStatus("idle", `${allTests.length} test${allTests.length !== 1 ? "s" : ""} — ${pharmacyName}`);
+        hideCounts();
+        renderTree(allTests);
+        btnRunAll.disabled = false;
+      } catch (e) {
+        treeEl.innerHTML = `<div class="empty-state">Error loading tests: ${e.message}</div>`;
+        setStatus("idle", "Failed to load tests");
+      }
+    }
+
+    // ── Tree builder ───────────────────────────────────────────────────────────
+    function renderTree(tests) {
+      const query = filterText.toLowerCase();
+      const visible = query
+        ? tests.filter(t => t.fullTitle.toLowerCase().includes(query) || t.file.toLowerCase().includes(query))
+        : tests;
+
+      if (visible.length === 0) {
+        treeEl.innerHTML = '<div class="empty-state">No tests match your filter</div>';
+        return;
+      }
+
+      // Group by file → suite
+      const byFile = {};
+      visible.forEach(t => {
+        if (!byFile[t.file]) byFile[t.file] = {};
+        const parts = (t.fullTitle || t.title).split(" > ");
+        const testName = parts[parts.length - 1];
+        const suite    = parts.length > 1 ? parts.slice(0, -1).join(" > ") : "__direct__";
+        if (!byFile[t.file][suite]) byFile[t.file][suite] = [];
+        byFile[t.file][suite].push({ ...t, _testName: testName });
+      });
+
+      treeEl.innerHTML = "";
+
+      for (const [file, suites] of Object.entries(byFile)) {
+        const shortName = file.split("/").pop();
+        const fileDiv   = document.createElement("div");
+        fileDiv.className = "tree-file";
+
+        const fileHdr = document.createElement("div");
+        fileHdr.className = "tree-file-hdr open";
+        fileHdr.innerHTML = `
+          <span class="chevron">▶</span>
+          <span class="file-icon">📄</span>
+          <span class="file-name" title="${file}">${shortName}</span>
+          <button class="run-file-btn" title="Run all tests in this file">Run</button>
+        `;
+        fileHdr.querySelector(".run-file-btn").addEventListener("click", e => {
+          e.stopPropagation();
+          startRun({ file, label: shortName });
+        });
+        fileHdr.addEventListener("click", e => {
+          if (e.target.classList.contains("run-file-btn")) return;
+          fileHdr.classList.toggle("open");
+          childrenDiv.classList.toggle("open");
+        });
+
+        const childrenDiv = document.createElement("div");
+        childrenDiv.className = "tree-children open";
+
+        for (const [suite, sTests] of Object.entries(suites)) {
+          if (suite === "__direct__") {
+            sTests.forEach(t => childrenDiv.appendChild(makeTestNode(t, "suite-direct")));
+          } else {
+            const suiteHdr = document.createElement("div");
+            suiteHdr.className = "tree-suite-hdr open";
+            suiteHdr.innerHTML = `<span class="chevron">▶</span><span>${suite}</span>`;
+
+            const suiteChildren = document.createElement("div");
+            suiteChildren.className = "tree-children open";
+            sTests.forEach(t => suiteChildren.appendChild(makeTestNode(t)));
+
+            suiteHdr.addEventListener("click", () => {
+              suiteHdr.classList.toggle("open");
+              suiteChildren.classList.toggle("open");
+            });
+
+            childrenDiv.appendChild(suiteHdr);
+            childrenDiv.appendChild(suiteChildren);
+          }
+        }
+
+        fileDiv.appendChild(fileHdr);
+        fileDiv.appendChild(childrenDiv);
+        treeEl.appendChild(fileDiv);
+      }
+    }
+
+    function makeTestNode(t, extraClass) {
+      const div = document.createElement("div");
+      div.className = "tree-test" + (extraClass ? " " + extraClass : "");
+      div.dataset.fullTitle = t.fullTitle || t.title;
+      div.innerHTML = `
+        <span class="test-dot" data-title="${t.fullTitle || t.title}"></span>
+        <span class="test-name" title="${t.fullTitle || t.title}">${t._testName || t.title}</span>
+        <button class="run-test-btn" title="Run this test">▶</button>
+      `;
+      div.querySelector(".run-test-btn").addEventListener("click", e => {
+        e.stopPropagation();
+        startRun({ file: t.file, line: t.line, grep: t.fullTitle, label: t._testName || t.title });
+      });
+      div.addEventListener("click", e => {
+        if (e.target.classList.contains("run-test-btn")) return;
+        // just select without running
+        document.querySelectorAll(".tree-test").forEach(n => n.classList.remove("active"));
+        div.classList.add("active");
+      });
+      return div;
+    }
+
+    // ── Search filter ──────────────────────────────────────────────────────────
+    searchEl.addEventListener("input", () => {
+      filterText = searchEl.value;
+      renderTree(allTests);
+    });
+
+    // ── Run ────────────────────────────────────────────────────────────────────
+    function startRun({ file, line, grep, label } = {}) {
+      if (running) return;
+      if (!currentPharmacy) { alert("Select a pharmacy first."); return; }
+
+      running = true;
+      clearLog();
+      hideCounts();
+      setStatus("running", `Running${label ? ": " + label : " all tests"}…`);
+      btnRunAll.style.display = "none";
+      btnStop.style.display   = "";
+      videoEl.style.display   = "none";
+      vpHolder.style.display  = "flex";
+      browserUrl.value = "Running…";
+
+      // Mark all dots as running (or just the targeted one)
+      const targets = file
+        ? treeEl.querySelectorAll(`.tree-test[data-full-title]`)
+        : treeEl.querySelectorAll(".tree-test");
+      treeEl.querySelectorAll(".test-dot").forEach(d => {
+        d.className = "test-dot";
+      });
+
+      // Build SSE URL
+      const params = new URLSearchParams({ project: currentPharmacy });
+      if (file)  params.set("file", file);
+      if (line)  params.set("line", line);
+      if (grep)  params.set("grep", grep);
+      if (label) params.set("label", label);
+
+      activeES = new EventSource(`/api/run-tests?${params}`);
+
+      activeES.onmessage = (e) => {
+        const { type, data } = JSON.parse(e.data);
+
+        if (type === "start") {
+          appendLog(data, "log-start");
+        } else if (type === "log") {
+          appendLog(data, classifyLog(data));
+          // Update URL bar if we see a URL-like string
+          const m = data.match(/https?:\/\/\S+/);
+          if (m) browserUrl.value = m[0];
+        } else if (type === "done") {
+          running = false;
+          activeES.close(); activeES = null;
+          btnStop.style.display   = "none";
+          btnRunAll.style.display = "";
+
+          const ok = data.success;
+          setStatus(ok ? "pass" : "fail", ok ? "All tests passed" : "Some tests failed");
+          if (data.passed || data.failed || data.skipped)
+            showCounts(data.passed, data.failed, data.skipped);
+
+          appendLog(
+            `\n── Run ${ok ? "✓ passed" : "✗ failed"} (code ${data.code}) ──`,
+            "log-done " + (ok ? "log-pass" : "log-fail")
+          );
+
+          // Artifacts
+          if (data.artifacts) {
+            updateArtifacts(data.artifacts);
+          }
+        }
+      };
+
+      activeES.onerror = () => {
+        if (!running) return;
+        running = false;
+        activeES = null;
+        btnStop.style.display   = "none";
+        btnRunAll.style.display = "";
+        setStatus("fail", "Connection error");
+        appendLog("Connection to server lost.", "log-fail");
+      };
+    }
+
+    btnRunAll.addEventListener("click", () => startRun());
+    btnStop.addEventListener("click", () => {
+      if (activeES) { activeES.close(); activeES = null; }
+      running = false;
+      btnStop.style.display   = "none";
+      btnRunAll.style.display = "";
+      setStatus("idle", "Stopped");
+      appendLog("Run stopped by user.", "log-warn");
+    });
+
+    // ── Artifacts ──────────────────────────────────────────────────────────────
+    function updateArtifacts(artifacts) {
+      // Videos
+      if (artifacts.videos && artifacts.videos.length) {
+        artifVideos.innerHTML = "";
+        artifacts.videos.forEach((url, i) => {
+          const name = url.split("/").pop();
+          const a = document.createElement("a");
+          a.href = url; a.target = "_blank";
+          a.className = "artifact-item";
+          a.innerHTML = `<span class="icon">📹</span><span class="name">${name}</span><span>↗</span>`;
+          artifVideos.appendChild(a);
+        });
+        // Auto-play latest video
+        const latest = artifacts.videos[artifacts.videos.length - 1];
+        videoEl.src = latest;
+        videoEl.style.display = "block";
+        vpHolder.style.display = "none";
+        videoEl.play().catch(() => {});
+        browserUrl.value = window.location.origin + latest;
+      } else {
+        artifVideos.innerHTML = '<div class="artifact-empty">No videos captured.</div>';
+      }
+
+      // Traces
+      if (artifacts.traces && artifacts.traces.length) {
+        artifTraces.innerHTML = "";
+        artifacts.traces.forEach(url => {
+          const name = url.split("/").pop();
+          const traceViewUrl = `${window.location.origin}/trace-viewer/index.html?trace=${encodeURIComponent(window.location.origin + url)}`;
+          const a = document.createElement("a");
+          a.href = traceViewUrl; a.target = "_blank";
+          a.className = "artifact-item";
+          a.innerHTML = `<span class="icon">🔍</span><span class="name">${name}</span><span>Open Trace Viewer ↗</span>`;
+          artifTraces.appendChild(a);
+        });
+      } else {
+        artifTraces.innerHTML = '<div class="artifact-empty">No traces captured.</div>';
+      }
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    loadPharmacies();
+    </script>
+  </body>
+</html>

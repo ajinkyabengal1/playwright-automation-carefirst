@@ -1,16 +1,16 @@
 export const TEST_USER = {
   gender: "male" as "male" | "female",
   dob: {
-    day: "15",
+    day: "01",
     month: "04",
     year: "1962",
     /** ISO format used by Ant Design DatePicker */
-    iso: "1962-04-15",
+    iso: "1962-04-01",
     /** Display format: DD/MM/YYYY */
-    display: "15/04/1962",
+    display: "01/04/1962",
   },
-  firstName: "Lloyd",
-  lastName: "PEENEY",
+  firstName: "peterss",
+  lastName: "Smith",
   postcode: "HD59LT",
   genderValue: "male",
   email: "lloyd.p2@yopmail.com",

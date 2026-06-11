@@ -59,6 +59,14 @@ export class QuestionnairePage {
     for (let step = 0; step < this.MAX_QUESTIONS; step++) {
       await this.page.waitForTimeout(200); // brief pause for animations
 
+      // Guard: once thank-you page is visible, stop questionnaire handling immediately.
+      if (await this.isOnThankYouPage()) {
+        console.log(
+          "[QuestionnairePage] Thank-you page detected — exiting questionnaire handler",
+        );
+        return;
+      }
+
       // Guard: once drug selection is visible, stop questionnaire handling.
       if (await this.isOnDrugSelectionPage()) {
         console.log(
@@ -94,6 +102,7 @@ export class QuestionnairePage {
       if (!advanced && !answered) {
         // No question found and no button — might be loading or done
         await this.page.waitForTimeout(1000);
+        if (await this.isOnThankYouPage()) return;
         if (await this.isOnDrugSelectionPage()) return;
         if (await this.isOnSignupOrBookingPage()) return;
         if (!(await this.isOnQuestionnairePage())) return;
@@ -1149,29 +1158,91 @@ export class QuestionnairePage {
       const picker = rangePickers.nth(i);
       if (await picker.isVisible().catch(() => false)) {
         const inputs = picker.locator("input");
-        if ((await inputs.count()) >= 2) {
-          const start = inputs.nth(0);
-          const startVal = await start.inputValue().catch(() => "");
-          if (startVal === "") {
-            await start.evaluate((el: HTMLInputElement) => el.removeAttribute("readonly"));
-            await start.click();
-            await start.fill("01-05-2026");
-            await start.press("Enter");
-            answeredAny = true;
-          }
-          const end = inputs.nth(1);
-          const endVal = await end.inputValue().catch(() => "");
-          if (endVal === "") {
-            await end.evaluate((el: HTMLInputElement) => el.removeAttribute("readonly"));
-            await end.click();
-            await end.fill("15-05-2026");
-            await end.press("Enter");
-            
-            const cell = this.page.locator(".ant-picker-cell-in-view").first();
-            if (await cell.isVisible({ timeout: 1000 }).catch(() => false)) {
-              await cell.click({ force: true }).catch(() => {});
+        const startVal = (await inputs.nth(0).inputValue().catch(() => "")).trim();
+        const endVal = (await inputs.nth(1).inputValue().catch(() => "")).trim();
+        const isStartEmpty = startVal === "" || startVal === "DD-MM-YYYY" || startVal === "YYYY-MM-DD" || startVal === "DD/MM/YYYY";
+        const isEndEmpty = endVal === "" || endVal === "DD-MM-YYYY" || endVal === "YYYY-MM-DD" || endVal === "DD/MM/YYYY";
+        
+        if (isStartEmpty || isEndEmpty) {
+          console.log("[QuestionnairePage] Opening range picker dropdown by clicking start input...");
+          await inputs.nth(0).click({ force: true });
+          
+          const dropdown = this.page.locator(".ant-picker-dropdown:visible").first();
+          await dropdown.waitFor({ state: "visible", timeout: 3000 }).catch(() => {});
+          
+          const cells = dropdown.locator(".ant-picker-cell-in-view:not(.ant-picker-cell-disabled)");
+          const cellsCount = await cells.count().catch(() => 0);
+          
+          if (cellsCount >= 10) {
+            console.log("[QuestionnairePage] Clicking cells on range calendar overlay...");
+            const startCell = cells.nth(0);
+            const startCellInner = startCell.locator(".ant-picker-cell-inner");
+            if (await startCellInner.isVisible().catch(() => false)) {
+              await startCellInner.click({ force: true }).catch(() => {});
+            } else {
+              await startCell.click({ force: true }).catch(() => {});
             }
+            await this.page.waitForTimeout(300);
+            
+            // Re-fetch visible cells after first click as selection changes the UI classes
+            const endCells = dropdown.locator(".ant-picker-cell-in-view:not(.ant-picker-cell-disabled)");
+            const endCellsCount = await endCells.count().catch(() => 0);
+            
+            // Ensure focus is on the end input before selecting the end cell
+            await inputs.nth(1).click({ force: true }).catch(() => {});
+            await this.page.waitForTimeout(200);
+            
+            if (endCellsCount > 7) {
+              const endCell = endCells.nth(6);
+              const endCellInner = endCell.locator(".ant-picker-cell-inner");
+              if (await endCellInner.isVisible().catch(() => false)) {
+                await endCellInner.click({ force: true }).catch(() => {});
+              } else {
+                await endCell.click({ force: true }).catch(() => {});
+              }
+            } else if (endCellsCount > 0) {
+              const endCell = endCells.last();
+              const endCellInner = endCell.locator(".ant-picker-cell-inner");
+              if (await endCellInner.isVisible().catch(() => false)) {
+                await endCellInner.click({ force: true }).catch(() => {});
+              } else {
+                await endCell.click({ force: true }).catch(() => {});
+              }
+            }
+            await this.page.waitForTimeout(300);
             answeredAny = true;
+          } else {
+            // Fallback: Type in start and end values manually
+            if ((await inputs.count()) >= 2) {
+              const start = inputs.nth(0);
+              if (isStartEmpty) {
+                await start.evaluate((el: HTMLInputElement) => el.removeAttribute("readonly"));
+                await start.click();
+                await start.fill("");
+                await start.fill("01-05-2026");
+                await start.press("Enter").catch(() => {});
+                await this.page.keyboard.press("Enter").catch(() => {});
+                answeredAny = true;
+              }
+              const end = inputs.nth(1);
+              if (isEndEmpty) {
+                await end.evaluate((el: HTMLInputElement) => el.removeAttribute("readonly"));
+                await end.click();
+                await end.fill("");
+                await end.fill("15-05-2026");
+                await end.press("Enter").catch(() => {});
+                await this.page.keyboard.press("Enter").catch(() => {});
+                
+                const cell = dropdown.locator(".ant-picker-cell-in-view").first();
+                const cellInner = cell.locator(".ant-picker-cell-inner");
+                if (await cellInner.isVisible({ timeout: 1000 }).catch(() => false)) {
+                  await cellInner.click({ force: true }).catch(() => {});
+                } else if (await cell.isVisible({ timeout: 500 }).catch(() => false)) {
+                  await cell.click({ force: true }).catch(() => {});
+                }
+                answeredAny = true;
+              }
+            }
           }
         }
       }
@@ -1182,25 +1253,58 @@ export class QuestionnairePage {
     for (let i = 0; i < datePickerCount; i++) {
       const picker = datePickers.nth(i);
       const isVisible = await picker.isVisible().catch(() => false);
-      const isEmpty = await picker.evaluate((el: HTMLInputElement) => !el.value).catch(() => true);
-      if (isVisible && isEmpty) {
-        await picker.evaluate((el: HTMLInputElement) => el.removeAttribute("readonly"));
-        await picker.click();
-        const placeholder = (await picker.getAttribute("placeholder")) || "";
-        const dateStr = placeholder.includes("YYYY") ? "1990-01-01" : "01-01-1990";
-        await picker.fill(dateStr);
-        await picker.press("Enter");
+      if (!isVisible) continue;
+
+      // Filter out range picker inputs using DOM traversal
+      const isRangeInput = await picker.evaluate((el) => {
+        return !!el.closest(".ant-picker-range") || el.hasAttribute("date-range");
+      }).catch(() => false);
+      if (isRangeInput) continue;
+
+      const isEmpty = await picker.evaluate((el: HTMLInputElement) => {
+        const val = (el.value || "").trim();
+        return !val || val === "DD-MM-YYYY" || val === "YYYY-MM-DD" || val === "DD/MM/YYYY";
+      }).catch(() => true);
+      
+      if (isEmpty) {
+        console.log("[QuestionnairePage] Opening single date picker dropdown...");
+        await picker.click({ force: true });
         
-        const cell = this.page.locator(".ant-picker-cell-in-view").first();
-        if (await cell.isVisible({ timeout: 1000 }).catch(() => false)) {
+        const dropdown = this.page.locator(".ant-picker-dropdown:visible").first();
+        await dropdown.waitFor({ state: "visible", timeout: 3000 }).catch(() => {});
+        
+        const cell = dropdown.locator(".ant-picker-cell-in-view:not(.ant-picker-cell-disabled)").first();
+        const cellInner = cell.locator(".ant-picker-cell-inner");
+        if (await cellInner.isVisible({ timeout: 1000 }).catch(() => false)) {
+          console.log("[QuestionnairePage] Clicking active date cell inner...");
+          await cellInner.click({ force: true }).catch(() => {});
+          answeredAny = true;
+        } else if (await cell.isVisible({ timeout: 1000 }).catch(() => false)) {
+          console.log("[QuestionnairePage] Clicking active date cell...");
           await cell.click({ force: true }).catch(() => {});
+          answeredAny = true;
+        } else {
+          // Fallback: Type in value
+          console.log("[QuestionnairePage] Cell not visible, falling back to manual typing...");
+          await picker.evaluate((el: HTMLInputElement) => el.removeAttribute("readonly"));
+          await picker.click();
+          await picker.fill("");
+          const placeholder = (await picker.getAttribute("placeholder")) || "";
+          const dateStr = placeholder.includes("YYYY") ? "1990-01-01" : "01-01-1990";
+          await picker.fill(dateStr);
+          await picker.press("Enter").catch(() => {});
+          await this.page.keyboard.press("Enter").catch(() => {});
+          answeredAny = true;
         }
-        answeredAny = true;
       }
     }
 
     // 2. Handle Text / Textarea fields
-    const textInputs = this.page.locator('input[type="text"]:not([name="first_name"]):not([name="last_name"]):not([name="postcode"]):not([name="email"]):not([name="phone"]), textarea');
+    const textInputs = this.page.locator(
+      'input[type="text"]:not([name="first_name"]):not([name="last_name"]):not([name="postcode"]):not([name="email"]):not([name="phone"]), ' +
+      'input:not([type]):not([name="first_name"]):not([name="last_name"]):not([name="postcode"]):not([name="email"]):not([name="phone"]), ' +
+      'textarea'
+    );
     const textCount = await textInputs.count().catch(() => 0);
     for (let i = 0; i < textCount; i++) {
       const input = textInputs.nth(i);
@@ -1208,7 +1312,7 @@ export class QuestionnairePage {
       const isEmpty = await input.evaluate((el: HTMLInputElement | HTMLTextAreaElement) => !el.value).catch(() => true);
       if (isVisible && isEmpty) {
         // Find question text context
-        const parentWrapper = this.page.locator('.questionnaire-answer-wrapper, .text-box-question-wrapper, .textarea-question-wrapper').filter({ has: input }).first();
+        const parentWrapper = this.page.locator('.questionnaire-answer-wrapper, .text-box-question-wrapper, .textarea-question-wrapper, .health-data-question-wrapper').filter({ has: input }).first();
         let questionText = "";
         if (await parentWrapper.count() > 0) {
           const qLabel = parentWrapper.locator('.questions');
@@ -1218,11 +1322,20 @@ export class QuestionnairePage {
         }
         
         const placeholder = (await input.getAttribute("placeholder")) || "";
+        const name = (await input.getAttribute("name")) || "";
+        const qTextLower = questionText.toLowerCase();
+        const placeholderLower = placeholder.toLowerCase();
+        const nameLower = name.toLowerCase();
+
         if (/1\s*to\s*10|1-10/i.test(questionText) || /1\s*to\s*10|1-10/i.test(placeholder)) {
           await input.fill("5");
-        } else if (placeholder.includes("___/___") || placeholder.includes("mmHg")) {
+        } else if (placeholder.includes("___/___") || placeholder.includes("mmHg") || /blood\s*pressure/i.test(questionText) || /systolic/i.test(questionText)) {
           await input.fill("120/80");
-        } else if (placeholder.toLowerCase().includes("occupation") || questionText.toLowerCase().includes("occupation")) {
+        } else if (nameLower.includes("height") || placeholderLower.includes("height") || qTextLower.includes("height")) {
+          await input.fill("170");
+        } else if (nameLower.includes("weight") || placeholderLower.includes("weight") || qTextLower.includes("weight")) {
+          await input.fill("150");
+        } else if (placeholderLower.includes("occupation") || qTextLower.includes("occupation")) {
           await input.fill("Office worker");
         } else {
           await input.fill("None");
@@ -1240,7 +1353,7 @@ export class QuestionnairePage {
       const isEmpty = await input.evaluate((el: HTMLInputElement) => !el.value).catch(() => true);
       if (isVisible && isEmpty) {
         // Find question text context
-        const parentWrapper = this.page.locator('.questionnaire-answer-wrapper, .numerical-question-wrapper').filter({ has: input }).first();
+        const parentWrapper = this.page.locator('.questionnaire-answer-wrapper, .numerical-question-wrapper, .health-data-question-wrapper').filter({ has: input }).first();
         let questionText = "";
         if (await parentWrapper.count() > 0) {
           const qLabel = parentWrapper.locator('.questions');
@@ -1251,14 +1364,15 @@ export class QuestionnairePage {
 
         const name = (await input.getAttribute("name") || "").toLowerCase();
         const placeholder = (await input.getAttribute("placeholder") || "").toLowerCase();
+        const qTextLower = questionText.toLowerCase();
         
-        let value = "1";
+        let value = "150"; // Fallback to 150 (between 100-250) instead of 1
         if (/1\s*to\s*10|1-10/i.test(questionText) || /1\s*to\s*10|1-10/i.test(placeholder)) {
           value = "5";
-        } else if (name.includes("height") || placeholder.includes("height")) {
+        } else if (name.includes("height") || placeholder.includes("height") || qTextLower.includes("height")) {
           value = "170";
-        } else if (name.includes("weight") || placeholder.includes("weight")) {
-          value = "70";
+        } else if (name.includes("weight") || placeholder.includes("weight") || qTextLower.includes("weight")) {
+          value = "150"; // Weight in lbs (between 100-250) or kg (e.g. 75, but let's use 150 to satisfy 100-250)
         }
         await input.fill(value);
         answeredAny = true;
@@ -1610,6 +1724,10 @@ export class QuestionnairePage {
         return true;
       }
 
+      if (await this.isOnThankYouPage()) {
+        return true;
+      }
+
       const clicked = await this.clickPrimaryButton();
       if (!clicked) {
         return progressed;
@@ -1769,6 +1887,24 @@ export class QuestionnairePage {
           'button:has-text("Pay")',
           ':text("Pass challenge")',
           ':text("3dsecure.io")',
+        ].join(", "),
+      )
+      .first()
+      .isVisible({ timeout: 300 })
+      .catch(() => false);
+  }
+
+  private async isOnThankYouPage(): Promise<boolean> {
+    return this.page
+      .locator(
+        [
+          "text=/thank you for your order!/i",
+          "text=/your order has been successfully placed/i",
+          "text=/order summary/i",
+          "text=/thank you!/i",
+          "text=/your answers have been shared/i",
+          'button:has-text("Back to Home")',
+          'a:has-text("Back to Home")',
         ].join(", "),
       )
       .first()

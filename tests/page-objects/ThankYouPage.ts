@@ -1,5 +1,8 @@
 import { Page } from "@playwright/test";
-import { THANK_YOU_PREFERENCES, ThankYouPreferences } from "../fixtures/test-data";
+import {
+  THANK_YOU_PREFERENCES,
+  ThankYouPreferences,
+} from "../fixtures/test-data";
 
 export class ThankYouPage {
   readonly page: Page;
@@ -9,23 +12,21 @@ export class ThankYouPage {
   }
 
   async isVisible(): Promise<boolean> {
-    const indicators = [
-      "text=/thank you for your order!/i",
-      "text=/your order has been successfully placed/i",
-      "text=/order summary/i",
-      'a:has-text("My Orders")',
-      'a:has-text("Continue Shopping")',
+    const textSelectors = [
+      'text="Thank you!"',
+      'text="thank you!"',
+      'text="Thank you for your order!"',
+      'text="Your answers have been shared"',
+      'text="Back to Home"',
+      'text="My Orders"',
+      'text="Continue Shopping"',
+      'text="Order Summary"',
     ];
 
-    for (const sel of indicators) {
-      const nodes = this.page.locator(sel);
-      const count = await nodes.count().catch(() => 0);
-      for (let i = 0; i < Math.min(count, 6); i++) {
-        const visible = await nodes
-          .nth(i)
-          .isVisible({ timeout: 300 })
-          .catch(() => false);
-        if (visible) return true;
+    for (const sel of textSelectors) {
+      const node = this.page.locator(sel).first();
+      if (await node.isVisible().catch(() => false)) {
+        return true;
       }
     }
 
@@ -46,7 +47,7 @@ export class ThankYouPage {
             .first()
         : this.page
             .locator(
-              'a:has-text("Continue Shopping"), button:has-text("Continue Shopping"), text=/continue\s*shopping/i',
+              'a:has-text("Continue Shopping"), button:has-text("Continue Shopping"), text=/continue\s*shopping/i, button:has-text("Back to Home"), a:has-text("Back to Home"), text=/back\s*to\s*home/i',
             )
             .first();
 

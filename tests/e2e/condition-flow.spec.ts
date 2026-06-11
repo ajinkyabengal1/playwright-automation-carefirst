@@ -620,7 +620,23 @@ test.describe("Conditions flow", () => {
           await questionnaire.waitForPage();
           await questionnaire.answerAllQuestions();
           console.log("✔ Pre-consultation questionnaire completed successfully!");
-          await page.waitForTimeout(2000);
+          
+          console.log("Waiting for the Thank-you page to appear...");
+          let thankYouVisible = false;
+          for (let i = 0; i < 150; i++) {
+            if (await thankYou.isVisible()) {
+              thankYouVisible = true;
+              break;
+            }
+            await page.waitForTimeout(200);
+          }
+          
+          if (thankYouVisible) {
+            console.log("✔ Thank-you page detected! Test completed successfully.");
+            await thankYou.handleThankYou(THANK_YOU_PREFERENCES);
+          } else {
+            console.log("⚠️ Questionnaire submitted but Thank-you page was not detected within timeout.");
+          }
         }
       }
 

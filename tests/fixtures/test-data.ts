@@ -9,8 +9,8 @@ export const TEST_USER = {
     /** Display format: DD/MM/YYYY */
     display: "01/04/1962",
   },
-  firstName: "peterss",
-  lastName: "Smith",
+  firstName: "jhon",
+  lastName: "will",
   postcode: "HD59LT",
   genderValue: "male",
   email: "lloyd.p2@yopmail.com",

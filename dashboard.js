@@ -549,6 +549,11 @@ app.get("/api/run-tests", (req, res) => {
   const envParams = { ...process.env };
   if (req.query.slug) {
     envParams.CONDITION_SLUG = req.query.slug;
+    envParams.CONDITION_LABEL = req.query.label || req.query.slug;
+    // Calculate iteration number from the store
+    const storeEntry = conditionApiStore[req.query.slug];
+    const iterNum = storeEntry ? storeEntry.iterations.length : 1;
+    envParams.ITERATION_NUMBER = String(iterNum);
   }
 
   const proc = spawn("npx", args, {
@@ -618,6 +623,181 @@ app.get("/api/last-result", (req, res) => {
 // ── Serve dashboard ──────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "dashboard-public/index.html"));
+});
+
+// ── Condition API Tracking Store ────────────────────────────────────────────
+const conditionApiStore = {};
+let apiStreamClients = [];
+let apiCallIdSeq = 0;
+
+function broadcastApiEvent(event) {
+  const data = JSON.stringify(event);
+  apiStreamClients = apiStreamClients.filter(client => {
+    try {
+      client.write(`data: ${data}\n\n`);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  });
+}
+
+// SSE endpoint for real-time API call events
+app.get("/api/api-call-stream", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+  apiStreamClients.push(res);
+  req.on("close", () => {
+    apiStreamClients = apiStreamClients.filter(c => c !== res);
+  });
+});
+
+// Track a single API call
+app.post("/api/track-api-call", (req, res) => {
+  const { conditionId, conditionName, iterationNumber, apiCall } = req.body;
+  if (!conditionId || !iterationNumber || !apiCall) {
+    return res.status(400).json({ error: "conditionId, iterationNumber, and apiCall are required" });
+  }
+
+  // Ensure condition entry exists
+  if (!conditionApiStore[conditionId]) {
+    conditionApiStore[conditionId] = { conditionName: conditionName || conditionId, iterations: [] };
+  }
+
+  // Find or create the iteration
+  let iteration = conditionApiStore[conditionId].iterations.find(
+    it => it.iterationNumber === iterationNumber
+  );
+  if (!iteration) {
+    iteration = {
+      iterationNumber,
+      timestamp: new Date().toISOString(),
+      status: "running",
+      apiCalls: [],
+    };
+    conditionApiStore[conditionId].iterations.push(iteration);
+  }
+
+  const enrichedCall = {
+    ...apiCall,
+    id: `api-${++apiCallIdSeq}`,
+    timestamp: new Date().toISOString(),
+  };
+  iteration.apiCalls.push(enrichedCall);
+
+  const event = {
+    type: "api-call",
+    conditionId,
+    conditionName: conditionApiStore[conditionId].conditionName,
+    iterationNumber,
+    apiCall: enrichedCall,
+  };
+  broadcastApiEvent(event);
+
+  res.json({ success: true, apiCall: enrichedCall });
+});
+
+// Get API calls for a specific condition
+app.get("/api/condition-api-calls/:conditionId", (req, res) => {
+  const entry = conditionApiStore[req.params.conditionId];
+  if (!entry) {
+    return res.status(404).json({ error: "Condition not found" });
+  }
+  res.json(entry);
+});
+
+// Get all stored conditions
+app.get("/api/condition-api-calls", (req, res) => {
+  res.json(conditionApiStore);
+});
+
+// Start an iteration
+app.post("/api/start-iteration", (req, res) => {
+  const { conditionId, conditionName, iterationNumber } = req.body;
+  if (!conditionId || !iterationNumber) {
+    return res.status(400).json({ error: "conditionId and iterationNumber are required" });
+  }
+
+  if (!conditionApiStore[conditionId]) {
+    conditionApiStore[conditionId] = { conditionName: conditionName || conditionId, iterations: [] };
+  }
+
+  // Remove existing iteration with the same number (if re-running)
+  conditionApiStore[conditionId].iterations = conditionApiStore[conditionId].iterations.filter(
+    it => it.iterationNumber !== iterationNumber
+  );
+
+  const iteration = {
+    iterationNumber,
+    timestamp: new Date().toISOString(),
+    status: "running",
+    apiCalls: [],
+  };
+  conditionApiStore[conditionId].iterations.push(iteration);
+
+  // Update condition name if provided
+  if (conditionName) {
+    conditionApiStore[conditionId].conditionName = conditionName;
+  }
+
+  broadcastApiEvent({
+    type: "iteration-start",
+    conditionId,
+    conditionName: conditionApiStore[conditionId].conditionName,
+    iterationNumber,
+  });
+
+  res.json({ success: true, iteration });
+});
+
+// End an iteration
+app.post("/api/end-iteration", (req, res) => {
+  const { conditionId, iterationNumber, status } = req.body;
+  if (!conditionId || !iterationNumber || !status) {
+    return res.status(400).json({ error: "conditionId, iterationNumber, and status are required" });
+  }
+
+  const entry = conditionApiStore[conditionId];
+  if (!entry) {
+    return res.status(404).json({ error: "Condition not found" });
+  }
+
+  const iteration = entry.iterations.find(it => it.iterationNumber === iterationNumber);
+  if (!iteration) {
+    return res.status(404).json({ error: "Iteration not found" });
+  }
+
+  iteration.status = status;
+
+  broadcastApiEvent({
+    type: "iteration-end",
+    conditionId,
+    conditionName: entry.conditionName,
+    iterationNumber,
+    status,
+    totalApiCalls: iteration.apiCalls.length,
+  });
+
+  res.json({ success: true, iteration });
+});
+
+// Clear stored API call data
+app.post("/api/clear-api-calls", (req, res) => {
+  const { conditionId } = req.body || {};
+  if (conditionId) {
+    delete conditionApiStore[conditionId];
+    broadcastApiEvent({ type: "clear", conditionId });
+  } else {
+    for (const key of Object.keys(conditionApiStore)) {
+      delete conditionApiStore[key];
+    }
+    broadcastApiEvent({ type: "clear-all" });
+  }
+  res.json({ success: true });
 });
 
 const PORT = 7890;

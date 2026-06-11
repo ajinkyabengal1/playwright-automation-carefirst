@@ -242,6 +242,113 @@ test.describe("Conditions flow", () => {
       }
     });
 
+    // ── API Call Tracking ──────────────────────────────────────────────────
+    const DASHBOARD_URL = process.env.DASHBOARD_URL || "http://localhost:7890";
+    const conditionSlug =
+      process.env.CONDITION_SLUG || getActiveConditionName();
+    const iterationNumber = parseInt(process.env.ITERATION_NUMBER || "1", 10);
+    const conditionLabel =
+      process.env.CONDITION_LABEL || conditionSlug;
+
+    // Track API calls by intercepting request/response pairs
+    const pendingRequests = new Map<
+      string,
+      { method: string; url: string; headers: Record<string, string>; body: string | null; startTime: number }
+    >();
+
+    page.on("request", (req) => {
+      const url = req.url();
+      // Only track the specific whitelisted APIs
+      const whitelist = [
+        "corporate_health_condition_details.json",
+        "get_next_available_slots",
+        "get_corporate_slots",
+        "appointments.json",
+        "pds_search_patients",
+        "users/sign_up.json",
+        "submit_questionnaire",
+        "create_preconsult"
+      ];
+      if (whitelist.some(endpoint => url.includes(endpoint))) {
+        pendingRequests.set(req.url() + req.method(), {
+          method: req.method(),
+          url: req.url(),
+          headers: req.headers(),
+          body: req.postData() || null,
+          startTime: Date.now(),
+        });
+      }
+    });
+
+    page.on("response", async (res) => {
+      const req = res.request();
+      const key = req.url() + req.method();
+      const pending = pendingRequests.get(key);
+      if (!pending) return;
+      pendingRequests.delete(key);
+
+      const duration = Date.now() - pending.startTime;
+      let responseBody: unknown = null;
+      let responseHeaders: Record<string, string> = {};
+
+      try {
+        responseHeaders = res.headers();
+      } catch {}
+
+      try {
+        const contentType = responseHeaders["content-type"] || "";
+        if (
+          contentType.includes("json") ||
+          contentType.includes("text")
+        ) {
+          const text = await res.text().catch(() => "");
+          if (text) {
+            try {
+              responseBody = JSON.parse(text);
+            } catch {
+              responseBody = text.substring(0, 2000); // Limit size
+            }
+          }
+        }
+      } catch {}
+
+      let requestBody: unknown = null;
+      if (pending.body) {
+        try {
+          requestBody = JSON.parse(pending.body);
+        } catch {
+          requestBody = pending.body;
+        }
+      }
+
+      // Send to dashboard tracking API (fire-and-forget)
+      const trackPayload = {
+        conditionId: conditionSlug,
+        conditionName: conditionLabel,
+        iterationNumber,
+        apiCall: {
+          method: pending.method,
+          url: pending.url,
+          status: res.status(),
+          duration,
+          requestHeaders: pending.headers,
+          requestBody,
+          responseHeaders,
+          responseBody,
+          responseTime: new Date().toISOString(),
+          success: res.status() >= 200 && res.status() < 400,
+        },
+      };
+
+      try {
+        await fetch(`${DASHBOARD_URL}/api/track-api-call`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(trackPayload),
+        }).catch(() => {}); // Silently fail — dashboard may not be running
+      } catch {}
+    });
+
     const conditionsPage = new ConditionsPage(page);
     const detailPage = new ConditionDetailPage(page);
     const guestContinuePage = new GuestContinuePage(page);

@@ -299,25 +299,31 @@ export class SignupPage {
       .locator(
         [
           ".ant-modal-content:has(input.PhoneInputInput)",
+          '.ant-modal-content:has(input[type="email"])',
           '.ant-modal-content:has(input[name="email"])',
           '[role="dialog"]:has(input.PhoneInputInput)',
+          '[role="dialog"]:has(input[type="email"])',
           '[role="dialog"]:has(input[name="email"])',
+          'form:has(input[type="email"])',
           'form:has(input[name="email"])',
+          'form:has(input[type="tel"])',
+          'div:has(h3:has-text("Verify contact details"))',
         ].join(", "),
       )
       .first();
   }
 
   private getPatientInfoScope() {
-    return this.page
+    const scope = this.page
       .locator(
         [
           'form:has(input[name="first_name"])',
           'div:has(input[name="first_name"])',
-          ':text("Patient Information")',
+          'form',
         ].join(", "),
       )
       .first();
+    return scope;
   }
 
   /** Wait for the NHS PDS identity form to be visible. */
@@ -327,7 +333,10 @@ export class SignupPage {
       .locator(
         [
           'input[name="first_name"]',
+          'input[placeholder*="first name" i]',
           'input[name="last_name"]',
+          'input[placeholder*="last name" i]',
+          ':text("Patient information")',
           ':text("Create your account")',
           ':text("Register")',
           ':text("Sign up")',
@@ -350,19 +359,48 @@ export class SignupPage {
     dobIso: string;
   }) {
     const firstNameInput = this.page
-      .locator('input[name="first_name"]')
+      .locator([
+        'input[name="first_name"]',
+        'input[placeholder*="first name" i]',
+        'input[placeholder*="First name" i]',
+      ].join(", "))
       .first();
     await firstNameInput.waitFor({ state: "visible" });
     await firstNameInput.clear();
     await firstNameInput.fill(data.firstName);
+    await firstNameInput.evaluate((el: HTMLInputElement) => {
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
 
-    const lastNameInput = this.page.locator('input[name="last_name"]').first();
+    const lastNameInput = this.page
+      .locator([
+        'input[name="last_name"]',
+        'input[placeholder*="last name" i]',
+        'input[placeholder*="Last name" i]',
+      ].join(", "))
+      .first();
     await lastNameInput.clear();
     await lastNameInput.fill(data.lastName);
+    await lastNameInput.evaluate((el: HTMLInputElement) => {
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
 
-    const postcodeInput = this.page.locator('input[name="postcode"]').first();
+    const postcodeInput = this.page
+      .locator([
+        'input[name="postcode"]',
+        'input[placeholder*="postcode" i]',
+        'input[placeholder*="Postal code" i]',
+        'input[placeholder*="postcode" i]',
+      ].join(", "))
+      .first();
     await postcodeInput.clear();
     await postcodeInput.fill(data.postcode);
+    await postcodeInput.evaluate((el: HTMLInputElement) => {
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
 
     await this.fillDobAndGenderIfRequired(data.gender, data.dobIso);
     await this.waitForSignupValidationToClear();
@@ -372,13 +410,13 @@ export class SignupPage {
     gender: "male" | "female",
     dobIso: string,
   ) {
+    const scope = this.getPatientInfoScope();
     const [yyyy, mm, dd] = dobIso.split("-");
     const day = dd ?? "01";
     const month = mm ?? "01";
     const year = yyyy ?? "1990";
 
-    const scope = this.getPatientInfoScope();
-    const dobContainer = scope
+    const dobContainer = this.page
       .locator(
         [
           'div:has-text("Date of birth")',
@@ -397,19 +435,19 @@ export class SignupPage {
     const dobDay = hasLabeledTriplet
       ? labeledInputs.nth(0)
       : await this.getFirstVisibleIn(
-          scope,
+          dobContainer,
           'input[placeholder="DD"], input[name*="day"], input[id*="day"]',
         );
     const dobMonth = hasLabeledTriplet
       ? labeledInputs.nth(1)
       : await this.getFirstVisibleIn(
-          scope,
+          dobContainer,
           'input[placeholder="MM"], input[name*="month"], input[id*="month"]',
         );
     const dobYear = hasLabeledTriplet
       ? labeledInputs.nth(2)
       : await this.getFirstVisibleIn(
-          scope,
+          dobContainer,
           'input[placeholder="YYYY"], input[name*="year"], input[id*="year"]',
         );
 
@@ -463,6 +501,7 @@ export class SignupPage {
     const genderTargets = scope.locator(
       [
         `label:has-text("${genderLabel}")`,
+        `button:has-text("${genderLabel}")`,
         `[role="radio"]:has-text("${genderLabel}")`,
         `input[type="radio"][value="${gender}"]`,
         `input[type="radio"][id="${gender}"]`,
@@ -597,6 +636,7 @@ export class SignupPage {
         [
           'button:has-text("Check Records"):visible',
           'button:has-text("Continue")',
+          'button:has-text("Submit")',
           'button:has-text("Check")',
           'button[type="submit"]',
         ].join(", "),
@@ -704,11 +744,14 @@ export class SignupPage {
     const resultLocator = this.page
       .locator(
         [
+          'button:has-text("Continue as private consultation")',
           'span:has-text("Yes, I want to continue with the private consultation")',
           'button:has-text("Try Again")',
-          'input[name="email"]',
+          'button:has-text("Check details & try again")',
+          'input[type="email"]',
           ':text("records found")',
           ':text("No record found")',
+          ':text("couldn\'t find a matching NHS record")',
           ':text("successfully verified")',
           ':text("could not find any NHS records")',
         ].join(", "),
@@ -717,27 +760,24 @@ export class SignupPage {
 
     await resultLocator.waitFor({ state: "visible", timeout: 45_000 });
 
-    // No-match path: click "Yes, I want to continue with the private consultation"
-    // IMPORTANT: use the FULL text to avoid matching the bold "private consultation"
-    // text in the paragraph above (which is not clickable).
     const privateLink = this.page
       .locator(
-        'span:has-text("Yes, I want to continue with the private consultation")',
+        'button:has-text("Continue as private consultation"), span:has-text("Yes, I want to continue with the private consultation")',
       )
       .first();
     if (await privateLink.isVisible().catch(() => false)) {
       console.log(
-        "[SignupPage] Clicking 'private consultation' link to open modal",
+        "[SignupPage] Clicking 'private consultation' link to proceed",
       );
       await privateLink.click();
-      // Wait for the Ant Design modal to open (PhoneInput becomes visible)
+      // Wait for the contact form to appear
       await this.page
         .locator(
-          ".ant-modal-body input.PhoneInputInput, .ant-modal-content input.PhoneInputInput, .ant-modal input.PhoneInputInput",
+          'input[type="tel"], input.PhoneInputInput',
         )
         .first()
         .waitFor({ state: "visible", timeout: 20_000 });
-      console.log("[SignupPage] Contact-details modal is open");
+      console.log("[SignupPage] Contact-details form is open");
     }
   }
 
@@ -757,67 +797,37 @@ export class SignupPage {
     const scope = this.getContactFormScope();
 
     // Wait for email field to confirm modal/form is ready
-    const emailInput = scope.locator('input[name="email"]').first();
+    const emailInput = scope.locator('input[type="email"], input[name="email"], input[placeholder*="email" i]').first();
     await emailInput.waitFor({ state: "visible", timeout: 20_000 });
     console.log("[SignupPage] Contact-details form ready — starting fill");
 
-    // ── Phone fields (react-phone-number-input renders as .PhoneInputInput) ──
-    const phoneInputs = scope.locator("input.PhoneInputInput");
-    const phoneCount = await phoneInputs.count();
-    console.log(`[SignupPage] PhoneInputInput count: ${phoneCount}`);
+    // ── Phone fields ──
+    const phoneInput = scope.locator('input[type="tel"], input.PhoneInputInput, input[placeholder*="Phone number" i]').first();
     const normalizedPhone = this.normalizeUkPhoneForInput(phone);
-    console.log(
-      `[SignupPage] Normalized phone for input: "${normalizedPhone}"`,
-    );
+    console.log(`[SignupPage] Normalized phone for input: "${normalizedPhone}"`);
 
-    // Helper: fill ONE react-phone-number-input field
-    const fillPhoneField = async (idx: number, label: string) => {
-      const inp = phoneInputs.nth(idx);
-      await inp.scrollIntoViewIfNeeded().catch(() => {});
-      await inp.click();
-      await inp.press("Control+a");
+    if (await phoneInput.isVisible().catch(() => false)) {
+      await phoneInput.scrollIntoViewIfNeeded().catch(() => {});
+      await phoneInput.click();
+      await phoneInput.press("Control+a");
       await this.page.waitForTimeout(50);
-      await inp.press("Backspace");
+      await phoneInput.press("Backspace");
       await this.page.waitForTimeout(80);
-      await inp.pressSequentially(normalizedPhone, { delay: 60 });
+      await phoneInput.pressSequentially(normalizedPhone, { delay: 60 });
       await this.page.waitForTimeout(150);
-
-      // Blur to run field-level Formik validation
-      await inp.press("Tab");
+      await phoneInput.press("Tab");
       await this.page.waitForTimeout(250);
-
-      const displayed = await inp.inputValue().catch(() => "?");
-      console.log(
-        `[SignupPage] ${label} display value after fill: "${displayed}"`,
-      );
-    };
-
-    if (phoneCount >= 1) {
-      await fillPhoneField(0, "phone");
-    } else {
-      // Fallback: generic tel input
-      const telInput = scope.locator('input[type="tel"]').first();
-      if (await telInput.isVisible().catch(() => false)) {
-        await telInput.click();
-        await telInput.press("Control+a");
-        await telInput.press("Backspace");
-        await telInput.pressSequentially(normalizedPhone, { delay: 60 });
-        await telInput.press("Tab");
-        const v = await telInput.inputValue().catch(() => "?");
-        console.log(`[SignupPage] tel fallback value: "${v}"`);
-      }
     }
 
-    if (phoneCount >= 2) {
-      await fillPhoneField(1, "confirmPhone");
-    }
-
-    // ── Email ────────────────────────────────────────────────────────────────
+    // ── Email fields ──
+    await emailInput.scrollIntoViewIfNeeded().catch(() => {});
     await emailInput.click();
-    await emailInput.clear();
+    await emailInput.press("Control+a");
+    await this.page.waitForTimeout(50);
+    await emailInput.press("Backspace");
     await emailInput.fill(email);
+    await this.page.waitForTimeout(150);
     await emailInput.press("Tab");
-    console.log(`[SignupPage] Email filled: "${email}"`);
 
     // ── Confirm email ────────────────────────────────────────────────────────
     const confirmEmailInput = scope
@@ -867,6 +877,7 @@ export class SignupPage {
       ".ant-modal-footer button",
       "button",
       'button:has-text("Confirm")',
+      'button:has-text("Confirm Booking")',
       'button:has-text("Continue")',
       'button:has-text("Book Appointment")',
       'button[type="submit"]',
@@ -956,6 +967,15 @@ export class SignupPage {
     if (!isVisible) {
       console.log("[SignupPage] WARNING: no Confirm/submit button found");
       return;
+    }
+
+    // Wait for button to become enabled (in case of delayed validation)
+    if (!isEnabled) {
+      for (let i = 0; i < 10; i++) {
+        await this.page.waitForTimeout(400);
+        isEnabled = await submitButton.isEnabled().catch(() => false);
+        if (isEnabled) break;
+      }
     }
 
     if (!isEnabled) {
@@ -1094,7 +1114,7 @@ export class SignupPage {
     if (stillOnSignup) {
       const postErrors = await this.page
         .locator(
-          ".ant-modal p, .ant-modal span, .ant-modal div[class*='error'], .ant-modal [class*='text-red'], [class*='error'], [class*='text-red']",
+          ".ant-modal p, .ant-modal span, .ant-modal div[class*='error'], .ant-modal [class*='text-red'], [class*='error'], [class*='text-red'], .ant-message-custom-content",
         )
         .allTextContents()
         .catch(() => [] as string[]);
@@ -1104,6 +1124,18 @@ export class SignupPage {
       console.log(
         `[SignupPage] Still on signup after submit. Visible text: ${nonEmptyErrors.slice(0, 12).join(" | ")}`,
       );
+
+      // Check for hard API/validation errors like "invalid condition" on the page or in the error lists
+      const bodyText = await this.page.innerText("body").catch(() => "");
+      const hasInvalidCondition =
+        /invalid condition|condition is invalid/i.test(bodyText) ||
+        nonEmptyErrors.some((err) => /invalid condition|condition is invalid/i.test(err));
+
+      if (hasInvalidCondition) {
+        throw new Error(
+          `Test failed: API returned 'invalid condition' error on the confirm booking page.`
+        );
+      }
     }
   }
 

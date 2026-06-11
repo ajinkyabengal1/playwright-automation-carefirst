@@ -1,5 +1,6 @@
 import { Page } from "@playwright/test";
-import { PaymentMethod } from "../fixtures/flow-configs";
+
+export type PaymentMethod = "auto" | "new-card" | "saved-card";
 
 export class PaymentPage {
   readonly page: Page;

@@ -289,7 +289,7 @@ function findArtifactsAfter(since) {
     for (const entry of entries) {
       const full = path.join(d, entry.name);
       if (entry.isDirectory()) {
-        scan(full);
+        if (!entry.name.startsWith(".")) scan(full);
       } else if (entry.isFile()) {
         try {
           const stat = fs.statSync(full);
@@ -312,6 +312,170 @@ function findArtifactsAfter(since) {
 app.get("/api/test-data", (req, res) => {
   try {
     res.json(readTestData());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/sanity-conditions", async (req, res) => {
+  try {
+    const fetchFunc = typeof fetch !== "undefined" ? fetch : (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+    
+    let websiteConditions = [];
+    const siteUrl = req.query.url;
+    
+    if (siteUrl) {
+      try {
+        const htmlRes = await fetchFunc(siteUrl);
+        const html = await htmlRes.text();
+        
+        // 1. Find all H2 headings with their indexes to determine sections
+        const h2Matches = [];
+        const h2Re = /<h2[^>]*>([\s\S]*?)<\/h2>/gi;
+        let m;
+        while ((m = h2Re.exec(html))) {
+          const text = m[1].replace(/<[^>]*>/g, "").trim().replace(/\s+/g, " ");
+          h2Matches.push({ text, index: m.index });
+        }
+        
+        // 2. Find all condition links with their inner HTML and indexes
+        const linkRe = /<a\s+[^>]*href="\/conditions\/([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+        while ((m = linkRe.exec(html))) {
+          const slug = m[1];
+          const innerHTML = m[2];
+          const matchIndex = m.index;
+          
+          // Try to find a heading or title text inside the card
+          const titleM = innerHTML.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i) || innerHTML.match(/<span[^>]*>([\s\S]*?)<\/span>/i);
+          let title = titleM ? titleM[1] : "";
+          title = title.replace(/<[^>]*>/g, "").trim().replace(/\s+/g, " ");
+          
+          // Decode HTML entities
+          title = title
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, "\"")
+            .replace(/&#x27;/g, "'")
+            .replace(/&#x2F;/g, "/")
+            .replace(/&#39;/g, "'");
+            
+          if (!title) {
+            // Fallback: title from slug
+            title = slug
+              .replace(/-nhs$/i, "")
+              .replace(/-private$/i, "")
+              .split("-")
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+          }
+          
+          // 3. Determine services category (NHS vs Private) from H2 sections
+          let services = null;
+          // Find the closest preceding H2
+          let closestH2 = null;
+          for (const h2 of h2Matches) {
+            if (h2.index < matchIndex) {
+              closestH2 = h2;
+            } else {
+              break;
+            }
+          }
+          
+          if (closestH2) {
+            const h2Text = closestH2.text.toLowerCase();
+            if (h2Text.includes("free") || h2Text.includes("nhs")) {
+              services = "NHS";
+            } else if (h2Text.includes("private")) {
+              services = "Private";
+            }
+          }
+          
+          // Fallback check on slug name if headings didn't match or categorize it
+          if (!services) {
+            if (slug.toLowerCase().endsWith("-nhs")) {
+              services = "NHS";
+            } else if (slug.toLowerCase().endsWith("-private")) {
+              services = "Private";
+            } else if (slug.toLowerCase().includes("nhs")) {
+              services = "NHS";
+            } else if (slug.toLowerCase().includes("private")) {
+              services = "Private";
+            } else {
+              services = "NHS"; // Safe default
+            }
+          }
+          
+          websiteConditions.push({ slug, title, services });
+        }
+      } catch (err) {
+        console.error("Failed to fetch site HTML for slug extraction:", err.message);
+      }
+    }
+
+    // Now query Sanity conditions
+    const query = encodeURIComponent(`*[_type == "singleCondition" && conditionLogStatus == "active"]{ title, conditionId, "slug": conditionSlug.current, services }`);
+    const url = `https://sorypy3x.api.sanity.io/v2024-10-28/data/query/dev?query=${query}`;
+    
+    let sanityConditions = [];
+    try {
+      const response = await fetchFunc(url);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.result) {
+          sanityConditions = data.result;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch Sanity conditions:", err.message);
+    }
+    
+    // Merge websiteConditions and sanityConditions.
+    // If a siteUrl was fetched, we use websiteConditions as the base list (since we only want conditions available on the website)
+    // and enrich it with Sanity titles/services/conditionIds if matched.
+    // If siteUrl was NOT fetched or websiteConditions is empty, we fall back to returning sanityConditions.
+    let result = [];
+    if (siteUrl && websiteConditions.length > 0) {
+      const sanityMap = new Map();
+      for (const sc of sanityConditions) {
+        if (sc.slug) {
+          sanityMap.set(sc.slug, sc);
+        }
+      }
+      
+      const seenSlugs = new Set();
+      for (const wc of websiteConditions) {
+        if (seenSlugs.has(wc.slug)) continue;
+        seenSlugs.add(wc.slug);
+        
+        const sc = sanityMap.get(wc.slug);
+        if (sc) {
+          result.push({
+            title: sc.title || wc.title,
+            slug: wc.slug,
+            services: sc.services || wc.services,
+            conditionId: sc.conditionId
+          });
+        } else {
+          result.push({
+            title: wc.title,
+            slug: wc.slug,
+            services: wc.services
+          });
+        }
+      }
+    } else {
+      // Fallback: use all sanity conditions that have a slug
+      const seenSlugs = new Set();
+      for (const sc of sanityConditions) {
+        if (sc.slug && !seenSlugs.has(sc.slug)) {
+          seenSlugs.add(sc.slug);
+          result.push(sc);
+        }
+      }
+    }
+    
+    res.json({ result });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -371,9 +535,8 @@ app.get("/api/run-tests", (req, res) => {
   const runStartTime = Date.now();
   lastRunStartTime = runStartTime;
 
-  const hasDisplay = !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY || process.platform === "darwin" || process.platform === "win32");
-  const args = ["playwright", "test", "--reporter=list"];
-  if (hasDisplay) args.push("--headed");
+  const outputDir = `test-results/run-${runStartTime}`;
+  const args = ["playwright", "test", "--reporter=list", `--output=${outputDir}`];
   if (project) args.push(`--project=${project}`);
   // Prefer file:line targeting. Also allow grep within a file if no line number.
   if (file) {
@@ -383,9 +546,14 @@ app.get("/api/run-tests", (req, res) => {
     args.push("--grep", grep);
   }
 
+  const envParams = { ...process.env };
+  if (req.query.slug) {
+    envParams.CONDITION_SLUG = req.query.slug;
+  }
+
   const proc = spawn("npx", args, {
     cwd: __dirname,
-    env: { ...process.env },
+    env: envParams,
   });
 
   let stdout = "";

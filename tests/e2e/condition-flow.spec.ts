@@ -11,6 +11,7 @@ import {
 import { ConditionsPage } from "../page-objects/ConditionsPage";
 import { ConditionDetailPage } from "../page-objects/ConditionDetailPage";
 import { GuestContinuePage } from "../page-objects/GuestContinuePage";
+import { QuestionnairePage } from "../page-objects/QuestionnairePage";
 import { SignupPage } from "../page-objects/SignupPage";
 import { ProductSignupPage } from "../page-objects/ProductSignupPage";
 import { DrugSelectionPage } from "../page-objects/DrugSelectionPage";
@@ -18,24 +19,22 @@ import { CartPage } from "../page-objects/CartPage";
 import { ShippingAddressPage } from "../page-objects/ShippingAddressPage";
 import { ThankYouPage } from "../page-objects/ThankYouPage";
 import { BookingPage } from "../page-objects/BookingPage";
-import { PaymentPage } from "../page-objects/PaymentPage";
 
 // ─── Journey step types ───────────────────────────────────────────────────────
 type JourneyStep =
   | "guest_continue"
   | "product_signup"
+  | "questionnaire_submit"
   | "sign_up"
   | "appointment_booking"
   | "drug_selection"
   | "cart"
   | "shipping_address"
   | "thank_you"
-  | "payment"
   | "success"
   | "unknown";
 
 let shippingHandled = false;
-let paymentHandled = false;
 
 /**
  * Detect the current journey step by inspecting the DOM.
@@ -158,33 +157,7 @@ async function detectCurrentStep(page: Page): Promise<JourneyStep> {
     return "product_signup";
   }
 
-  // 8. Payment step
-  const paymentIndicators = [
-    ':text("Complete your payment")',
-    ':text("Enter your card details here")',
-    ':text("Select a saved card")',
-    'input[autocomplete="cc-name"]',
-    'input[autocomplete="cc-number"]',
-    'input[autocomplete="cc-exp"]',
-    'input[autocomplete="cc-csc"]',
-    ':text("3dsecure.io")',
-    ':text("Pass challenge")',
-    'button:has-text("Pay £")',
-    'button:has-text("Pay")',
-  ];
-  if (await hasVisibleIndicator(paymentIndicators)) {
-    return "payment";
-  }
 
-  // URL fallback for tenants/routes that render payment UI after a delay.
-  // Keep this after shipping detection to avoid misclassifying checkout address pages.
-  if (
-    /payment|checkout|card|3dsecure|challenge/i.test(currentUrl) &&
-    !(await hasVisibleIndicator(successIndicators)) &&
-    !(await hasVisibleIndicator(shippingAddressIndicators))
-  ) {
-    return "payment";
-  }
 
   // 9. Continue-as-guest step (must be before signup detection)
   const guestContinueIndicators = [
@@ -203,6 +176,13 @@ async function detectCurrentStep(page: Page): Promise<JourneyStep> {
   // 10. Sign-up / contact-details step
   const signupIndicators = [
     'input[name="first_name"]',
+    'input[name="last_name"]',
+    'input[name="postcode"]',
+    'input[placeholder*="first name" i]',
+    'input[placeholder*="last name" i]',
+    'input[placeholder*="postcode" i]',
+    ':text("Patient information")',
+    ':text("Patient Information")',
     'input[name="email"]',
     'input[type="email"]',
     'input[placeholder*="phone number" i]',
@@ -222,21 +202,36 @@ async function detectCurrentStep(page: Page): Promise<JourneyStep> {
     return "sign_up";
   }
 
+  // 11. Questionnaire step
+  const questionnaireIndicators = [
+    ':text("Questionnaires")',
+    ':text("Important Notice")',
+    ':text("Do you have these symptoms?")',
+    ':text("I do not have these symptoms")',
+    ':text("I do have these symptoms")',
+    'button:has-text("Next")',
+    '[class*="question"]',
+    '[class*="questionnaire"]',
+    ".ant-picker",
+  ];
+  if (await hasVisibleIndicator(questionnaireIndicators)) {
+    return "questionnaire_submit";
+  }
+
+  // Some tenants keep "/questionnaire" in the URL even after moving forward.
+  // Avoid URL-only fallback here, otherwise payment can be misrouted as questionnaire.
 
   return "unknown";
 }
 
 // ─── Main test ────────────────────────────────────────────────────────────────
 test.describe("Conditions flow", () => {
-  test.only("complete conditions flow: listing → eligibility → signup → book", async ({
+  test("complete conditions flow: Booking Page → signup → confirm page", async ({
     page,
     baseURL,
   }) => {
     page.on("console", (msg) => {
-      const type = msg.type();
-      if (type === "error" || type === "warning") {
-        console.log(`[browser ${type}] ${msg.text()}`);
-      }
+      console.log(`[browser ${msg.type()}] ${msg.text()}`);
     });
     page.on("pageerror", (err) => {
       console.log(`[page error] ${err.message}`);
@@ -250,6 +245,7 @@ test.describe("Conditions flow", () => {
     const conditionsPage = new ConditionsPage(page);
     const detailPage = new ConditionDetailPage(page);
     const guestContinuePage = new GuestContinuePage(page);
+    const questionnaire = new QuestionnairePage(page);
     const signup = new SignupPage(page);
     const productSignup = new ProductSignupPage(page);
     const drugSelection = new DrugSelectionPage(page);
@@ -257,17 +253,18 @@ test.describe("Conditions flow", () => {
     const shippingAddress = new ShippingAddressPage(page);
     const thankYou = new ThankYouPage(page);
     const booking = new BookingPage(page);
-    const payment = new PaymentPage(page);
 
-    const baseUrl = (baseURL ?? process.env.BASE_URL ?? "http://localhost:4005").replace(
-      /\/$/,
-      "",
-    );
+    const baseUrl = (
+      baseURL ??
+      process.env.BASE_URL ??
+      "http://localhost:4005"
+    ).replace(/\/$/, "");
     const selectedConditionName = getActiveConditionName();
 
     // ─── Step 1: Resolve condition href + pharmacy slug ─────────────────────
     let conditionHref: string;
     let pharmacySlug: string;
+    let usedFallback = false;
 
     const conditionDetailPath = process.env.CONDITION_DETAIL_PATH;
 
@@ -277,18 +274,30 @@ test.describe("Conditions flow", () => {
       console.log(`✔ Direct condition path: ${conditionDetailPath}`);
       console.log(`✔ Pharmacy slug: ${pharmacySlug}`);
     } else {
-      await test.step(`Navigate to /conditions and select ${ACTIVE_CONDITION.journeyType} condition: ${selectedConditionName}`, async () => {
+      await test.step(`Navigate to /conditions and select condition`, async () => {
         await conditionsPage.goto();
         await conditionsPage.waitForConditions();
       });
 
-      conditionHref = await conditionsPage.getConditionHrefByName(
-        selectedConditionName,
-      );
+      if (process.env.CONDITION_SLUG) {
+        try {
+          conditionHref = await conditionsPage.getConditionHrefBySlug(
+            process.env.CONDITION_SLUG,
+          );
+        } catch (e) {
+          console.log(
+            `Link for ${process.env.CONDITION_SLUG} not found on homepage. Falling back to direct URL path...`,
+          );
+          conditionHref = `/conditions/${process.env.CONDITION_SLUG}`;
+          usedFallback = true;
+        }
+      } else {
+        conditionHref = await conditionsPage.getConditionHrefByName(
+          selectedConditionName,
+        );
+      }
       pharmacySlug = conditionsPage.extractPharmacySlug(conditionHref);
-      console.log(
-        `✔ Selected ${ACTIVE_CONDITION.journeyType} condition (${selectedConditionName}) href: ${conditionHref}`,
-      );
+      console.log(`✔ Selected condition href: ${conditionHref}`);
       console.log(`✔ Pharmacy slug: ${pharmacySlug}`);
     }
 
@@ -308,31 +317,50 @@ test.describe("Conditions flow", () => {
         ]);
       }
 
-      const detailUrl = conditionHref.startsWith("http")
-        ? conditionHref
-        : `${baseUrl}${conditionHref}`;
-      await page.goto(detailUrl);
+      // Click the condition card or navigate directly if fallback was used
+      if (usedFallback) {
+        const detailUrl = conditionHref.startsWith("http")
+          ? conditionHref
+          : `${baseUrl}${conditionHref}`;
+        await page.goto(detailUrl);
+      } else {
+        await conditionsPage.clickConditionByHref(conditionHref);
+      }
       await detailPage.waitForDetailPage();
-    });
-
-    // ─── Step 3: Eligibility form (OPTIONAL) ──────────────────────────────
-    // fillEligibilityForm detects whether the form is present.
-    // If absent (e.g. Acne Vulgaris / private conditions), it skips silently.
-    // It also calls clickCheckEligibility internally — no need to call it again.
-    await test.step("Fill eligibility form if present: gender + DOB", async () => {
-      await detailPage.fillEligibilityForm({
-        gender: TEST_USER.gender,
-        day: TEST_USER.dob.day,
-        month: TEST_USER.dob.month,
-        year: TEST_USER.dob.year,
-      });
     });
 
     // ─── Step 4: Start Assessment ─────────────────────────────────────────
     await test.step("Click Start Assessment", async () => {
-      await detailPage.clickStartAssessment();
-      await guestContinuePage.continueAsGuestIfVisible();
-      await page.waitForLoadState("domcontentloaded");
+      // Check if we are already on a post-detail page step (like appointment booking)
+      const currentStep = await detectCurrentStep(page);
+      if (
+        currentStep !== "unknown" &&
+        currentStep !== "sign_up" &&
+        currentStep !== "guest_continue"
+      ) {
+        console.log(
+          `ℹ Already on step "${currentStep}" — skipping Click Start Assessment`,
+        );
+        return;
+      }
+      try {
+        await detailPage.clickStartAssessment();
+        await guestContinuePage.continueAsGuestIfVisible();
+        await page
+          .waitForURL("**/questionnaire**", { timeout: 15_000 })
+          .catch(() => {});
+        await page.waitForLoadState("domcontentloaded");
+      } catch (e) {
+        // Double check if we navigated somewhere recognized during wait
+        const stepAfterWait = await detectCurrentStep(page);
+        if (stepAfterWait !== "unknown") {
+          console.log(
+            `ℹ Navigated to step "${stepAfterWait}" during Click Start Assessment — continuing`,
+          );
+          return;
+        }
+        throw e;
+      }
     });
 
     console.log(`✔ Post-assessment URL: ${page.url()}`);
@@ -340,7 +368,7 @@ test.describe("Conditions flow", () => {
     // ─── Steps 5–N: Dynamic journey loop ─────────────────────────────────
     let journeyStatus: "incomplete" | "completed" = "incomplete";
 
-    await test.step("Complete dynamic journey (signup / booking)", async () => {
+    await test.step("Complete dynamic journey (questionnaire / signup / booking)", async () => {
       const MAX_ITERATIONS = 30;
       const stepVisits: Record<string, number> = {};
       const MAX_STEP_VISITS = 6;
@@ -352,6 +380,21 @@ test.describe("Conditions flow", () => {
 
         let step = await detectCurrentStep(page);
         console.log(`🔍 Iteration ${i + 1}: detected step = "${step}"`);
+
+        // Check for toast/page errors about invalid health conditions
+        const bodyText = await page.innerText("body").catch(() => "");
+        const toastTexts = await page
+          .locator(
+            ".ant-message, .ant-notification, [class*='toast'], [class*='message']",
+          )
+          .allInnerTexts()
+          .catch(() => [] as string[]);
+        const combinedText = [bodyText, ...toastTexts].join(" ");
+        if (/invalid.*condition|condition.*invalid/i.test(combinedText)) {
+          throw new Error(
+            `Test failed: 'invalid health condition' error detected on the page or toast.`,
+          );
+        }
 
         if (step === "success") {
           console.log("✔ Booking success state reached!");
@@ -370,14 +413,7 @@ test.describe("Conditions flow", () => {
             step = await detectCurrentStep(page);
           }
 
-          // Last safety fallback: URL hints commonly used by payment providers/pages.
-          if (
-            step === "unknown" &&
-            /payment|checkout|card|3dsecure|challenge/i.test(page.url())
-          ) {
-            step = "payment";
-            console.log('↻ URL fallback forced step = "payment"');
-          }
+
 
           if (step === "unknown") {
             console.log(`⚠ Unknown step at URL: ${page.url()} — stopping loop`);
@@ -385,6 +421,7 @@ test.describe("Conditions flow", () => {
           }
         }
 
+        const MAX_STEP_VISITS = 15;
         stepVisits[step] = (stepVisits[step] ?? 0) + 1;
         if (stepVisits[step] > MAX_STEP_VISITS) {
           console.log(
@@ -417,6 +454,12 @@ test.describe("Conditions flow", () => {
             break;
           }
 
+          case "questionnaire_submit": {
+            console.log("→ Handling questionnaire step");
+            await questionnaire.waitForPage();
+            await questionnaire.answerAllQuestions();
+            break;
+          }
 
           case "sign_up": {
             console.log("→ Handling sign-up step");
@@ -433,17 +476,39 @@ test.describe("Conditions flow", () => {
                 password: TEST_USER.password,
                 confirmPassword: TEST_USER.confirmPassword,
               });
+            console.log(
+              `[spec] handledDynamicCheckoutSignup=${handledDynamicCheckoutSignup}`,
+            );
             if (handledDynamicCheckoutSignup) {
               break;
             }
 
-            const hasNHSForm = await page
-              .locator('input[name="first_name"]')
-              .isVisible()
-              .catch(() => false);
+            const inputsInfo = await page.evaluate(() => {
+              const inputs = Array.from(document.querySelectorAll("input"));
+              return inputs.map((input) => ({
+                name: input.getAttribute("name"),
+                placeholder: input.getAttribute("placeholder"),
+                type: input.getAttribute("type"),
+                visible: input.offsetWidth > 0 && input.offsetHeight > 0,
+              }));
+            });
+            console.log(
+              `[spec] Found inputs on page:`,
+              JSON.stringify(inputsInfo),
+            );
+
+            const hasNHSForm = inputsInfo.some(
+              (i) =>
+                i.visible &&
+                (i.name === "first_name" ||
+                  (i.placeholder &&
+                    i.placeholder.toLowerCase().includes("first name"))),
+            );
+            console.log(`[spec] hasNHSForm=${hasNHSForm}`);
 
             if (hasNHSForm) {
               await signup.waitForPage();
+              console.log("[spec] fillNHSPDSForm starting...");
               await signup.fillNHSPDSForm({
                 firstName: TEST_USER.firstName,
                 lastName: TEST_USER.lastName,
@@ -451,10 +516,15 @@ test.describe("Conditions flow", () => {
                 gender: TEST_USER.gender,
                 dobIso: TEST_USER.dob.iso,
               });
-              if (ACTIVE_CONDITION.journeyType === "private") {
-                await signup.submitPrivatePatientInfoForm();
-              } else {
+              const activeSlug =
+                process.env.CONDITION_SLUG || getActiveConditionName();
+              if (
+                activeSlug.includes("shingles") ||
+                ACTIVE_CONDITION.journeyType === "nhs"
+              ) {
                 await signup.submitNHSForm();
+              } else {
+                await signup.submitPrivatePatientInfoForm();
               }
               await signup.handlePDSResult();
               break;
@@ -513,27 +583,16 @@ test.describe("Conditions flow", () => {
           }
 
           case "thank_you": {
-            console.log("✔ Thank-you page detected! Journey completed successfully.");
+            console.log(
+              "✔ Thank-you page detected! Journey completed successfully.",
+            );
             await thankYou.handleThankYou(THANK_YOU_PREFERENCES);
             journeyStatus = "completed";
             flowCompleted = true;
             break;
           }
 
-          case "payment": {
-            console.log("→ Handling payment step");
-            await payment.completePayment(TEST_USER.payment);
-            if (payment.isBookingFlowCompleted()) {
-              console.log(
-                "✔ Payment completed and redirected home — ending test flow",
-              );
 
-              paymentHandled = true;
-              journeyStatus = "completed";
-              flowCompleted = true;
-            }
-            break;
-          }
         }
       }
     });
@@ -545,13 +604,26 @@ test.describe("Conditions flow", () => {
       console.log(
         `✔ Final verification: ${isConfirmed ? "COMPLETED SUCCESSFUL" : "INCOMPLETE"}`,
       );
-      expect(page.url()).not.toContain("/conditions");
+      expect(isConfirmed).toBe(true);
       if (isConfirmed) {
         console.log(
           "🎉 SUCCESS: The pharmacy journey has been fully automated and verified!",
         );
+
+        // Check if pre-consultation questionnaire button is available on the confirmation page
+        const preConsultBtn = page.locator('button:has-text("Complete pre-consultation questionnaire")');
+        if (await preConsultBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+          console.log("Found 'Complete pre-consultation questionnaire' button. Clicking it to open questionnaire UI...");
+          await preConsultBtn.click();
+          
+          console.log("Answering pre-consultation questionnaire...");
+          await questionnaire.waitForPage();
+          await questionnaire.answerAllQuestions();
+          console.log("✔ Pre-consultation questionnaire completed successfully!");
+          await page.waitForTimeout(2000);
+        }
       }
-      
+
       // Explicitly close the page to trigger immediate browser shutdown
       await page.close();
     });

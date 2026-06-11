@@ -15,10 +15,10 @@ const ciBaseURL = process.env.BASE_URL;
 const isCI = !!process.env.CI;
 
 const projects = ciBaseURL
-  ? [{ name: "CI Override", use: { ...devices["Desktop Chrome"], baseURL: ciBaseURL } }]
+  ? [{ name: "CI Override", use: { ...devices["Desktop Chrome"], baseURL: ciBaseURL, headless: true } }]
   : PHARMACY_SITES.filter((site) => !(isCI && site.ciSkip)).map((site) => ({
       name: site.name,
-      use: { ...devices["Desktop Chrome"], baseURL: site.baseURL },
+      use: { ...devices["Desktop Chrome"], baseURL: site.baseURL, headless: true },
     }));
 
 export default defineConfig({
@@ -32,6 +32,7 @@ export default defineConfig({
   reporter: [["html", { open: "never" }], ["list"]],
 
   use: {
+    headless: true,
     trace: "on",
     screenshot: "only-on-failure",
     video: "on",

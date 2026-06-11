@@ -19,8 +19,10 @@ export class BookingPage {
         [
           ".appointment-type-radio-group",
           ':text("Appointment type")',
+          ':text("Appointment Type")',
           ':text("Book your appointment")',
           ':text("Schedule your appointment")',
+          ':text("Select a Date")',
           ".rota-slot",
           'button:has-text("Book Now")',
         ].join(", "),
@@ -36,13 +38,20 @@ export class BookingPage {
   async selectPreferredSessionType(
     prefs: BookingPreferences = BOOKING_PREFERENCES,
   ) {
-    const radioGroup = this.page.locator(".appointment-type-radio-group");
-    if (!(await radioGroup.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    const oldRadioGroup = this.page.locator(".appointment-type-radio-group");
+    const newButtonGroup = this.page.locator('h2:has-text("Appointment Type") + div, h2:has-text("Appointment type") + div');
+
+    let container = oldRadioGroup;
+    if (await newButtonGroup.isVisible({ timeout: 5000 }).catch(() => false)) {
+      container = newButtonGroup;
+    } else if (await oldRadioGroup.isVisible({ timeout: 500 }).catch(() => false)) {
+      container = oldRadioGroup;
+    } else {
       return;
     }
 
     const typeLabels: Record<string, string[]> = {
-      video: ["Video", "Video Consultation"],
+      video: ["Video", "Video Call", "Video Consultation"],
       "face-to-face": [
         "Face-to-face",
         "In-person",
@@ -50,7 +59,7 @@ export class BookingPage {
         "Clinic",
         "Face to Face",
       ],
-      "phone-call": ["Phone", "Phone call", "Telephone", "Phone call"],
+      "phone-call": ["Phone", "Phone call", "Telephone", "Telephone call"],
     };
 
     // Normalize key lookup: "Face to Face" -> "face-to-face"
@@ -60,8 +69,8 @@ export class BookingPage {
     const targetLabels = typeLabels[normalizedType] || [prefs.appointmentType];
 
     for (const label of targetLabels) {
-      const option = radioGroup
-        .locator("label, .ant-radio-wrapper, .ant-radio-button-wrapper")
+      const option = container
+        .locator("label, .ant-radio-wrapper, .ant-radio-button-wrapper, button")
         .filter({ hasText: label })
         .first();
       if (await option.isVisible().catch(() => false)) {
@@ -76,10 +85,10 @@ export class BookingPage {
     console.log(
       "[BookingPage] Preferred appointment type not found — clicking first available",
     );
-    const firstRadio = radioGroup
-      .locator(".ant-radio-wrapper, .ant-radio-button-wrapper, label")
+    const firstOption = container
+      .locator(".ant-radio-wrapper, .ant-radio-button-wrapper, label, button")
       .first();
-    await firstRadio.click();
+    await firstOption.click();
     await this.page.waitForTimeout(1500);
   }
 
@@ -215,11 +224,24 @@ export class BookingPage {
 
       const result = await this.page.evaluate(
         (target): { clicked: boolean; foundInView: boolean } => {
+          // Find buttons that look like date cells
+          const allButtons = Array.from(
+            document.querySelectorAll("button"),
+          ) as HTMLButtonElement[];
+
+          const dateCells = allButtons.filter((btn) => {
+            const disabled = btn.disabled || btn.getAttribute("aria-disabled") === "true";
+            if (disabled) return false;
+            // The new UI has 3 divs inside the button for day/date/month
+            return btn.children.length >= 2 && btn.textContent && btn.textContent.length < 15;
+          });
+
+          // Also keep the old div approach for backward compatibility
           const allDivs = Array.from(
             document.querySelectorAll("div[class]"),
           ) as HTMLElement[];
 
-          const dateCells = allDivs.filter((div) => {
+          const oldDateCells = allDivs.filter((div) => {
             const cls = div.className;
             return (
               cls.includes("flex-col") &&
@@ -230,10 +252,12 @@ export class BookingPage {
             );
           });
 
+          const validCells = dateCells.length > 0 ? dateCells : oldDateCells;
+
           if (target) {
             const normalizedTarget = target.replace(/\s+/g, "").toLowerCase();
-            const match = dateCells.find((div) => {
-              const text = (div.textContent ?? "")
+            const match = validCells.find((cell) => {
+              const text = (cell.textContent ?? "")
                 .replace(/\s+/g, "")
                 .toLowerCase();
               return text === normalizedTarget;
@@ -245,8 +269,8 @@ export class BookingPage {
             }
             return { clicked: false, foundInView: false };
           } else {
-            if (dateCells.length > 0) {
-              dateCells[0].click();
+            if (validCells.length > 0) {
+              validCells[0].click();
               return { clicked: true, foundInView: true };
             }
             return { clicked: false, foundInView: false };
@@ -291,13 +315,18 @@ export class BookingPage {
   async selectAvailableSlot(
     prefs: BookingPreferences = BOOKING_PREFERENCES,
   ): Promise<boolean> {
-    const slotGroup = this.page.locator(".rota-slot");
-    if (!(await slotGroup.isVisible({ timeout: 10_000 }).catch(() => false))) {
+    const oldSlotGroup = this.page.locator(".rota-slot");
+    const newSlotGroup = this.page.locator('h3:has-text("Select a Time") + div');
+    
+    let slotGroup = oldSlotGroup;
+    if (await newSlotGroup.isVisible({ timeout: 5000 }).catch(() => false)) {
+      slotGroup = newSlotGroup;
+    } else if (!(await oldSlotGroup.isVisible({ timeout: 500 }).catch(() => false))) {
       return false;
     }
 
     // Broaden the locator just in case different classes are used for different slots
-    const slotLabels = slotGroup.locator("label, .ant-radio-button-wrapper, .ant-radio-wrapper");
+    const slotLabels = slotGroup.locator("label, .ant-radio-button-wrapper, .ant-radio-wrapper, button");
     const count = await slotLabels.count();
     if (count === 0) return false;
 
@@ -505,11 +534,14 @@ export class BookingPage {
       'button:has-text("Continue To Payment")',
       'button:has-text("Continue to Payement")',
       ':text("Appointment type")',
+      ':text("Appointment Type")',
+      ':text("Select a Date")',
     ];
     for (const sel of indicators) {
       if (
         await this.page
           .locator(sel)
+          .first()
           .isVisible({ timeout: 500 })
           .catch(() => false)
       ) {
@@ -528,6 +560,22 @@ export class BookingPage {
    * Returns true if the radio was found and clicked.
    */
   private async clickNextAvailableSlotRadio(): Promise<boolean> {
+    // Strategy 0: New UI - "Book this slot" button
+    const newBookThisSlotBtn = this.page.locator('button:has-text("Book this slot"), button:has-text("Book This Slot")').first();
+    if (await newBookThisSlotBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log("[BookingPage] Strategy 0: Found 'Book this slot' button for soonest available slot");
+      await newBookThisSlotBtn.click();
+      await this.page.waitForTimeout(1000);
+      return true;
+    }
+
+    // Check if it already says "Selected" under Soonest available
+    const alreadySelected = this.page.locator('p:has-text("Soonest available")').locator('xpath=../..').locator('button:has-text("Selected")').first();
+    if (await alreadySelected.isVisible().catch(() => false)) {
+      console.log("[BookingPage] Strategy 0: 'Book this slot' is already Selected");
+      return true;
+    }
+
     // Strategy 1: DOM walk — find text, traverse up to locate the radio input,
     // then click it and fire a change event so React/custom frameworks register it.
     const clickedViaEvaluate = await this.page.evaluate((): boolean => {
@@ -676,6 +724,11 @@ export class BookingPage {
    * Returns true if checked or if verification is inconclusive (can't find the input).
    */
   private async verifyNextAvailableSlotSelected(): Promise<boolean> {
+    const alreadySelected = this.page.locator('p:has-text("Soonest available")').locator('xpath=../..').locator('button:has-text("Selected")').first();
+    if (await alreadySelected.isVisible().catch(() => false)) {
+      return true;
+    }
+
     return this.page.evaluate((): boolean => {
       const TARGET_TEXT = "select next available slot";
       const allElements = Array.from(document.querySelectorAll("*"));
@@ -729,24 +782,30 @@ export class BookingPage {
       const clicked = await this.clickNextAvailableSlotRadio();
 
       if (!clicked) {
-        const errorMsg =
-          "The 'Select next available slot' radio button was not found.";
-        console.log(`⚠ ${errorMsg}`);
-        throw new Error(errorMsg);
-      }
-
-      // Verify the radio is actually checked
-      const isSelected = await this.verifyNextAvailableSlotSelected();
-      if (!isSelected) {
         console.log(
-          "⚠ Radio was clicked but does not appear checked — retrying once",
+          "ℹ 'Select next available slot' radio button not found — falling back to first enabled date selection",
         );
-        await this.clickNextAvailableSlotRadio();
-        await this.page.waitForTimeout(500);
+        const dateSelected = await this.selectFirstEnabledDate(prefs);
+        if (!dateSelected) {
+          throw new Error("No available dates found during fallback");
+        }
+        const slotSelected = await this.selectAvailableSlot(prefs);
+        if (!slotSelected) {
+          throw new Error("No available time slots found during fallback");
+        }
+      } else {
+        // Verify the radio is actually checked
+        const isSelected = await this.verifyNextAvailableSlotSelected();
+        if (!isSelected) {
+          console.log(
+            "⚠ Radio was clicked but does not appear checked — retrying once",
+          );
+          await this.clickNextAvailableSlotRadio();
+          await this.page.waitForTimeout(500);
+        }
+        console.log("✔ 'Select next available slot' selected successfully");
+        await this.page.waitForTimeout(1500);
       }
-
-      console.log("✔ 'Select next available slot' selected successfully");
-      await this.page.waitForTimeout(1500);
     } else {
       // Fall back: select a date, then a time slot
       console.log(

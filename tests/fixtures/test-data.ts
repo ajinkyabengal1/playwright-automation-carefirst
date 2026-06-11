@@ -1,17 +1,17 @@
 export const TEST_USER = {
   gender: "male" as "male" | "female",
   dob: {
-    day: "01",
-    month: "01",
-    year: "1990",
+    day: "15",
+    month: "04",
+    year: "1962",
     /** ISO format used by Ant Design DatePicker */
-    iso: "1990-01-01",
+    iso: "1962-04-15",
     /** Display format: DD/MM/YYYY */
-    display: "01/01/1990",
+    display: "15/04/1962",
   },
-  firstName: "John",
-  lastName: "Smith",
-  postcode: "SW1A 1AA",
+  firstName: "Lloyd",
+  lastName: "PEENEY",
+  postcode: "HD59LT",
   genderValue: "male",
   email: "lloyd.p2@yopmail.com",
   guardianName: "Tonny stark",
@@ -29,7 +29,7 @@ export const TEST_USER = {
 export type ConditionJourneyType = "nhs" | "private" | "lifestyle";
 
 export const CONDITION_CATALOG: Record<ConditionJourneyType, string> = {
-  nhs: "shingles",
+  nhs: "shingles-herpes-zoster",
   private: "weight management",
   lifestyle: "erectile-dysfunction",
 };
@@ -45,6 +45,9 @@ export const ACTIVE_CONDITION = {
 };
 
 export function getActiveConditionName(): string {
+  if (process.env.CONDITION_SLUG) {
+    return process.env.CONDITION_SLUG;
+  }
   return CONDITION_CATALOG[ACTIVE_CONDITION.journeyType];
 }
 

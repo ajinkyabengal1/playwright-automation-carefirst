@@ -23,7 +23,7 @@ export class ConditionsPage {
   }
 
   async goto() {
-    await this.page.goto("/conditions");
+    await this.page.goto("/", { waitUntil: "domcontentloaded" });
     // Dismiss cookie consent banner if it appears (blocks condition card clicks)
     await this.page
       .locator(
@@ -105,6 +105,25 @@ export class ConditionsPage {
     }
 
     throw new Error(`Condition "${name}" not found on /conditions`);
+  }
+
+  /**
+   * Returns the href of the condition matching the sanity slug.
+   * Cleans up -nhs, -private, etc. from the dashboard slug to match frontend URLs.
+   */
+  async getConditionHrefBySlug(slug: string): Promise<string> {
+    const cleanSlug = slug.replace("-nhs", "").replace("-private", "").replace("-clinical", "");
+    const links = this.getAllConditionLinks();
+    const count = await links.count();
+
+    for (let i = 0; i < count; i++) {
+      const href = await links.nth(i).getAttribute("href");
+      if (href && href.includes(cleanSlug)) {
+        return href;
+      }
+    }
+
+    throw new Error(`Condition matching slug "${slug}" (cleaned to "${cleanSlug}") not found on page`);
   }
 
   /**

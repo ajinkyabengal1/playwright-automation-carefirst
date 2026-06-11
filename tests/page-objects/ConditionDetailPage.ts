@@ -50,6 +50,14 @@ export class ConditionDetailPage {
       ':text("Am I eligible for our pharmacy services?")',
       ':text("Am I eligible for NHS services?")',
       ':text("Check if your condition is covered")',
+      'heading:has-text("Appointment Type")',
+      'button:has-text("Face to Face")',
+      'button:has-text("Video Call")',
+      'button:has-text("Telephone")',
+      'button:has-text("Book Appointment")',
+      'a:has-text("Book Appointment")',
+      'button:has-text("Book Now")',
+      'a:has-text("Book Now")'
     ];
 
     let pageReady = false;
@@ -386,16 +394,20 @@ export class ConditionDetailPage {
       'button:has-text("Start Consultation"):visible',
       'a:has-text("Continue"):visible',
       'button:has-text("Continue"):visible',
+      'a:has-text("Book Appointment"):visible',
+      'button:has-text("Book Appointment"):visible',
+      'a:has-text("Book Now"):visible',
+      'button:has-text("Book Now"):visible',
     ].join(", ");
 
-    console.log("→ Waiting for Start Assessment button...");
+    console.log("→ Waiting for Start Assessment (or Book Now) button...");
 
     const startButtons = this.page.locator(selector);
     const regexStartBtn = this.page
       .locator("a,button,[role='button']")
       .filter({
         hasText:
-          /start\s*asses+ment|start\s*assessment|take\s*asses+ment|take\s*assessment|start\s*consultation/i,
+          /start\s*asses+ment|start\s*assessment|take\s*asses+ment|take\s*assessment|start\s*consultation|book\s*appointment|book\s*now/i,
       })
       .first();
 
@@ -468,6 +480,7 @@ export class ConditionDetailPage {
       this.page
         .locator(
           [
+            ':text("Questionnaires")',
             'input[name="first_name"]',
             ".appointment-type-radio-group",
             ".rota-slot",
@@ -486,7 +499,7 @@ export class ConditionDetailPage {
         .locator('a,button,[role="button"],span')
         .filter({
           hasText:
-            /Start Assessment|Take Assessment|Start Consultation|Continue/i,
+            /Start Assessment|Take Assessment|Start Consultation|Continue|Book Appointment|Book Now/i,
         })
         .first();
 
@@ -506,6 +519,7 @@ export class ConditionDetailPage {
         this.page
           .locator(
             [
+              ':text("Questionnaires")',
               'input[name="first_name"]',
               ".appointment-type-radio-group",
               ".rota-slot",

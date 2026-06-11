@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Playwright Test Runner</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎭</text></svg>" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎭</text></svg>"
+    />
     <style>
       /* ── Design tokens (Playwright --ui inspired) ─────────────────────────── */
       :root {
@@ -13,80 +16,252 @@
         --statusbar-h: 32px;
 
         /* Surfaces */
-        --clr-header:     #2e3047;
-        --clr-sidebar:    #f6f7fb;
-        --clr-main:       #ffffff;
-        --clr-log:        #1a1b26;
-        --clr-border:     #e2e5ed;
+        --clr-header: #2e3047;
+        --clr-sidebar: #f6f7fb;
+        --clr-main: #ffffff;
+        --clr-log: #1a1b26;
+        --clr-border: #e2e5ed;
         --clr-border-drk: #3a3d55;
 
         /* Text */
         --clr-txt-sidebar: #3a3d55;
-        --clr-txt-header:  #e8eaf6;
-        --clr-txt-muted:   #8a93a6;
-        --clr-txt-log:     #a9b1d6;
+        --clr-txt-header: #e8eaf6;
+        --clr-txt-muted: #8a93a6;
+        --clr-txt-log: #a9b1d6;
 
         /* Accents */
-        --clr-accent:   #5b8cff;
-        --clr-pass:     #22c55e;
-        --clr-fail:     #ef4444;
-        --clr-skip:     #f59e0b;
-        --clr-running:  #5b8cff;
+        --clr-accent: #5b8cff;
+        --clr-pass: #22c55e;
+        --clr-fail: #ef4444;
+        --clr-skip: #f59e0b;
+        --clr-running: #5b8cff;
 
         /* Misc */
         --radius-sm: 4px;
-        --radius:    8px;
-        --shadow:    0 1px 4px rgba(0,0,0,.12);
+        --radius: 8px;
+        --shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
       }
 
-      *, *::before, *::after { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-        font-size: 13px; line-height: 1.5; background: var(--clr-sidebar); color: var(--clr-txt-sidebar); }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
+        background: var(--clr-sidebar);
+        color: var(--clr-txt-sidebar);
+      }
+      /* ── Theme tokens ──────────────────────────────────────────────────────── */
+      :root {
+        --sidebar-w: 300px;
+        --header-h: 56px;
+        --statusbar-h: 36px;
+        --radius-sm: 6px;
+        --radius: 10px;
+        --transition: 0.2s ease;
+
+        --clr-accent: #7c6af7;
+        --clr-pass: #10d98a;
+        --clr-fail: #f5585a;
+        --clr-skip: #f59e0b;
+        --clr-running: #38bdf8;
+      }
+
+      [data-theme="dark"] {
+        --clr-bg: #0f0f18;
+        --clr-header: #13131f;
+        --clr-sidebar: #13131f;
+        --clr-main: #16162a;
+        --clr-log: #0c0c15;
+        --clr-surface: #1e1e34;
+        --clr-border: rgba(255, 255, 255, 0.07);
+        --clr-border-drk: rgba(255, 255, 255, 0.12);
+        --clr-txt-sidebar: #e8e8f0;
+        --clr-txt-header: #e8e8f0;
+        --clr-txt-muted: #6b6b90;
+        --clr-txt-log: #9090b8;
+        --clr-hover: rgba(124, 106, 247, 0.08);
+      }
+
+      [data-theme="light"] {
+        --clr-bg: #f5f4ff;
+        --clr-header: #ffffff;
+        --clr-sidebar: #f9f8ff;
+        --clr-main: #fdfdff;
+        --clr-log: #1a1a2e;
+        --clr-surface: #f0effe;
+        --clr-border: rgba(124, 106, 247, 0.12);
+        --clr-border-drk: rgba(124, 106, 247, 0.2);
+        --clr-txt-sidebar: #1a1a2e;
+        --clr-txt-header: #1a1a2e;
+        --clr-txt-muted: #6b6b90;
+        --clr-txt-log: #a9b1d6;
+        --clr-hover: rgba(124, 106, 247, 0.06);
+      }
+
+      body {
+        background: var(--clr-bg);
+        color: var(--clr-txt-sidebar);
+        transition:
+          background var(--transition),
+          color var(--transition);
+      }
+      #theme-toggle {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--clr-border-drk);
+        background: var(--clr-surface);
+        color: var(--clr-txt-muted);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #theme-toggle:hover {
+        background: var(--clr-hover);
+        border-color: var(--clr-accent);
+        color: var(--clr-accent);
+      }
 
       /* ── Header ─────────────────────────────────────────────────────────── */
       #header {
-        position: fixed; inset: 0 0 auto 0; height: var(--header-h);
-        background: var(--clr-header); display: flex; align-items: center;
-        gap: 12px; padding: 0 16px; z-index: 100;
+        position: fixed;
+        inset: 0 0 auto 0;
+        height: var(--header-h);
+        background: var(--clr-header);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        z-index: 100;
         border-bottom: 1px solid var(--clr-border-drk);
       }
-      #header .logo { font-size: 20px; line-height: 1; flex-shrink: 0; }
-      #header .title { font-size: 15px; font-weight: 600; color: var(--clr-txt-header); flex-shrink: 0; }
+      #header .logo {
+        font-size: 20px;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+      #header .title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--clr-txt-header);
+        flex-shrink: 0;
+      }
       #pharmacy-select {
-        flex: 0 0 220px; height: 28px; padding: 0 8px; border-radius: var(--radius-sm);
-        border: 1px solid var(--clr-border-drk); background: #3a3d55; color: var(--clr-txt-header);
-        font-size: 13px; cursor: pointer; outline: none;
+        flex: 0 0 220px;
+        height: 28px;
+        padding: 0 8px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--clr-border-drk);
+        background: var(--clr-surface);
+        color: var(--clr-txt-header);
+        font-size: 13px;
+        cursor: pointer;
+        outline: none;
       }
-      #pharmacy-select:focus { border-color: var(--clr-accent); }
-      #header .spacer { flex: 1; }
+      #pharmacy-select:focus {
+        border-color: var(--clr-accent);
+      }
+      #header .spacer {
+        flex: 1;
+      }
       .hdr-btn {
-        height: 28px; padding: 0 14px; border-radius: var(--radius-sm);
-        border: none; font-size: 12px; font-weight: 600; cursor: pointer;
-        display: flex; align-items: center; gap: 6px; transition: opacity .15s;
+        height: 28px;
+        padding: 0 14px;
+        border-radius: var(--radius-sm);
+        border: none;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: opacity 0.15s;
       }
-      .hdr-btn:disabled { opacity: .45; cursor: default; }
-      #btn-run-all { background: var(--clr-accent); color: #fff; }
-      #btn-stop    { background: var(--clr-fail);   color: #fff; }
+      .hdr-btn:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      #btn-run-all {
+        background: var(--clr-accent);
+        color: #fff;
+      }
+      #btn-stop {
+        background: var(--clr-fail);
+        color: #fff;
+      }
 
       /* ── Status bar ──────────────────────────────────────────────────────── */
       #statusbar {
-        position: fixed; inset: var(--header-h) 0 auto 0; height: var(--statusbar-h);
-        background: #fff; border-bottom: 1px solid var(--clr-border);
-        display: flex; align-items: center; padding: 0 16px; gap: 10px; z-index: 99;
-        font-size: 12px; color: var(--clr-txt-muted);
+        position: fixed;
+        inset: var(--header-h) 0 auto 0;
+        height: var(--statusbar-h);
+        background: #fff;
+        border-bottom: 1px solid var(--clr-border);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 10px;
+        z-index: 99;
+        font-size: 12px;
+        color: var(--clr-txt-muted);
       }
-      #status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background .3s; }
-      #status-dot.idle    { background: #ccc; }
-      #status-dot.running { background: var(--clr-running); animation: pulse 1s infinite; }
-      #status-dot.pass    { background: var(--clr-pass); }
-      #status-dot.fail    { background: var(--clr-fail); }
-      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-      #status-text { flex: 1; font-weight: 500; color: var(--clr-txt-sidebar); }
-      #status-counts span { margin-left: 10px; }
-      #status-counts .cnt-pass { color: var(--clr-pass); }
-      #status-counts .cnt-fail { color: var(--clr-fail); }
-      #status-counts .cnt-skip { color: var(--clr-skip); }
+      #status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ccc;
+        transition: background 0.3s;
+      }
+      #status-dot.idle {
+        background: #ccc;
+      }
+      #status-dot.running {
+        background: var(--clr-running);
+        animation: pulse 1s infinite;
+      }
+      #status-dot.pass {
+        background: var(--clr-pass);
+      }
+      #status-dot.fail {
+        background: var(--clr-fail);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+      #status-text {
+        flex: 1;
+        font-weight: 500;
+        color: var(--clr-txt-sidebar);
+      }
+      #status-counts span {
+        margin-left: 10px;
+      }
+      #status-counts .cnt-pass {
+        color: var(--clr-pass);
+      }
+      #status-counts .cnt-fail {
+        color: var(--clr-fail);
+      }
+      #status-counts .cnt-skip {
+        color: var(--clr-skip);
+      }
 
       /* ── Body layout ─────────────────────────────────────────────────────── */
       #body {
@@ -97,214 +272,520 @@
 
       /* ── Sidebar ─────────────────────────────────────────────────────────── */
       #sidebar {
-        width: var(--sidebar-w); min-width: var(--sidebar-w); height: 100%;
-        background: var(--clr-sidebar); border-right: 1px solid var(--clr-border);
-        display: flex; flex-direction: column; overflow: hidden;
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+        height: 100%;
+        background: var(--clr-sidebar);
+        border-right: 1px solid var(--clr-border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
       #search-wrap {
-        padding: 10px 12px; border-bottom: 1px solid var(--clr-border); flex-shrink: 0;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--clr-border);
+        flex-shrink: 0;
       }
       #search {
-        width: 100%; height: 28px; padding: 0 10px; border-radius: var(--radius-sm);
-        border: 1px solid var(--clr-border); background: #fff; font-size: 12px;
-        outline: none; color: var(--clr-txt-sidebar);
+        width: 100%;
+        height: 28px;
+        padding: 0 10px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--clr-border);
+        background: #fff;
+        font-size: 12px;
+        outline: none;
+        color: var(--clr-txt-sidebar);
       }
-      #search:focus { border-color: var(--clr-accent); }
+      #search:focus {
+        border-color: var(--clr-accent);
+      }
       #tree {
-        flex: 1; overflow-y: auto; padding: 8px 0;
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 0;
       }
 
       /* Tree nodes */
       .tree-file {
-        padding: 0; margin: 2px 0;
+        padding: 0;
+        margin: 2px 0;
       }
       .tree-file-hdr {
-        display: flex; align-items: center; gap: 6px;
-        padding: 5px 12px; cursor: pointer; border-radius: var(--radius-sm);
-        margin: 0 4px; font-weight: 600; font-size: 12px;
-        color: var(--clr-txt-sidebar); user-select: none;
-        transition: background .12s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+        margin: 0 4px;
+        font-weight: 600;
+        font-size: 12px;
+        color: var(--clr-txt-sidebar);
+        user-select: none;
+        transition: background 0.12s;
       }
-      .tree-file-hdr:hover { background: #ecedf5; }
-      .tree-file-hdr .chevron { font-size: 9px; transition: transform .2s; flex-shrink: 0; }
-      .tree-file-hdr.open .chevron { transform: rotate(90deg); }
-      .tree-file-hdr .file-icon { font-size: 13px; flex-shrink: 0; }
-      .tree-file-hdr .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tree-file-hdr:hover {
+        background: var(--clr-hover);
+      }
+      .tree-file-hdr .chevron {
+        font-size: 9px;
+        transition: transform 0.2s;
+        flex-shrink: 0;
+      }
+      .tree-file-hdr.open .chevron {
+        transform: rotate(90deg);
+      }
+      .tree-file-hdr .file-icon {
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .tree-file-hdr .file-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .tree-file-hdr .run-file-btn {
-        opacity: 0; font-size: 10px; padding: 1px 6px; border-radius: 3px;
-        border: 1px solid var(--clr-accent); color: var(--clr-accent);
-        background: transparent; cursor: pointer; transition: opacity .15s; flex-shrink: 0;
+        opacity: 0;
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 3px;
+        border: 1px solid var(--clr-accent);
+        color: var(--clr-accent);
+        background: transparent;
+        cursor: pointer;
+        transition: opacity 0.15s;
+        flex-shrink: 0;
       }
-      .tree-file-hdr:hover .run-file-btn { opacity: 1; }
+      .tree-file-hdr:hover .run-file-btn {
+        opacity: 1;
+      }
 
-      .tree-children { display: none; padding-left: 0; }
-      .tree-children.open { display: block; }
+      .tree-children {
+        display: none;
+        padding-left: 0;
+      }
+      .tree-children.open {
+        display: block;
+      }
 
       .tree-suite-hdr {
-        display: flex; align-items: center; gap: 6px;
-        padding: 4px 12px 4px 28px; cursor: pointer;
-        margin: 0 4px; border-radius: var(--radius-sm);
-        font-size: 11px; font-weight: 600; color: var(--clr-txt-muted);
-        text-transform: uppercase; letter-spacing: .04em; user-select: none;
-        transition: background .12s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px 4px 28px;
+        cursor: pointer;
+        margin: 0 4px;
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--clr-txt-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        user-select: none;
+        transition: background 0.12s;
       }
-      .tree-suite-hdr:hover { background: #ecedf5; }
-      .tree-suite-hdr .chevron { font-size: 8px; transition: transform .2s; }
-      .tree-suite-hdr.open .chevron { transform: rotate(90deg); }
+      .tree-suite-hdr:hover {
+        background: var(--clr-hover);
+      }
+      .tree-suite-hdr .chevron {
+        font-size: 8px;
+        transition: transform 0.2s;
+      }
+      .tree-suite-hdr.open .chevron {
+        transform: rotate(90deg);
+      }
 
       .tree-test {
-        display: flex; align-items: center; gap: 8px;
-        padding: 5px 12px 5px 40px; cursor: pointer;
-        margin: 0 4px; border-radius: var(--radius-sm);
-        font-size: 12px; color: var(--clr-txt-sidebar);
-        transition: background .12s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px 5px 40px;
+        cursor: pointer;
+        margin: 0 4px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        color: var(--clr-txt-sidebar);
+        transition: background 0.12s;
       }
-      .tree-test.suite-direct { padding-left: 28px; }
-      .tree-test:hover { background: #ecedf5; }
-      .tree-test.active { background: #e8eeff; color: var(--clr-accent); }
+      .tree-test.suite-direct {
+        padding-left: 28px;
+      }
+      .tree-test:hover {
+        background: var(--clr-hover);
+      }
+      .tree-test.active {
+        background: var(--clr-hover);
+        color: var(--clr-accent);
+      }
 
       .tree-test .test-dot {
-        width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-        background: #ccc; transition: background .3s;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: #ccc;
+        transition: background 0.3s;
       }
-      .tree-test .test-dot.running { background: var(--clr-running); animation: pulse 1s infinite; }
-      .tree-test .test-dot.pass    { background: var(--clr-pass); }
-      .tree-test .test-dot.fail    { background: var(--clr-fail); }
-      .tree-test .test-dot.skip    { background: var(--clr-skip); }
+      .tree-test .test-dot.running {
+        background: var(--clr-running);
+        animation: pulse 1s infinite;
+      }
+      .tree-test .test-dot.pass {
+        background: var(--clr-pass);
+      }
+      .tree-test .test-dot.fail {
+        background: var(--clr-fail);
+      }
+      .tree-test .test-dot.skip {
+        background: var(--clr-skip);
+      }
 
-      .tree-test .test-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .tree-test .run-test-btn {
-        opacity: 0; font-size: 10px; padding: 1px 6px; border-radius: 3px;
-        border: 1px solid var(--clr-accent); color: var(--clr-accent);
-        background: transparent; cursor: pointer; transition: opacity .15s; flex-shrink: 0;
+      .tree-test .test-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .tree-test:hover .run-test-btn { opacity: 1; }
+      .tree-test .run-test-btn {
+        opacity: 0;
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 3px;
+        border: 1px solid var(--clr-accent);
+        color: var(--clr-accent);
+        background: transparent;
+        cursor: pointer;
+        transition: opacity 0.15s;
+        flex-shrink: 0;
+      }
+      .tree-test:hover .run-test-btn {
+        opacity: 1;
+      }
 
       /* Empty state */
       .empty-state {
-        padding: 40px 20px; text-align: center; color: var(--clr-txt-muted); font-size: 12px;
+        padding: 40px 20px;
+        text-align: center;
+        color: var(--clr-txt-muted);
+        font-size: 12px;
       }
 
       /* ── Main panel ──────────────────────────────────────────────────────── */
       #main {
-        flex: 1; min-width: 0; height: 100%;
-        display: flex; flex-direction: column; background: var(--clr-main);
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: var(--clr-main);
         overflow: hidden;
       }
 
       /* Browser chrome (the fake browser frame) */
       #browser-chrome {
-        flex-shrink: 0; background: #292b3f; padding: 10px 12px 0;
-        display: flex; flex-direction: column; gap: 8px;
+        flex-shrink: 0;
+        background: #292b3f;
+        padding: 10px 12px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
       #browser-dots {
-        display: flex; gap: 6px; align-items: center;
+        display: flex;
+        gap: 6px;
+        align-items: center;
       }
       #browser-dots span {
-        width: 10px; height: 10px; border-radius: 50%;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
       }
-      #browser-dots .dot-r { background: #ff5f57; }
-      #browser-dots .dot-y { background: #ffbd2e; }
-      #browser-dots .dot-g { background: #28c840; }
+      #browser-dots .dot-r {
+        background: #ff5f57;
+      }
+      #browser-dots .dot-y {
+        background: #ffbd2e;
+      }
+      #browser-dots .dot-g {
+        background: #28c840;
+      }
       #browser-url {
-        flex: 1; height: 22px; background: #3a3d55; border-radius: 11px;
-        border: none; font-size: 11px; color: #a9b1d6; padding: 0 12px;
-        margin-left: 10px; outline: none; width: calc(100% - 10px);
+        flex: 1;
+        height: 22px;
+        background: var(--clr-surface);
+        border-radius: 11px;
+        border: none;
+        font-size: 11px;
+        color: var(--clr-txt-log);
+        padding: 0 12px;
+        margin-left: 10px;
+        outline: none;
+        width: calc(100% - 10px);
       }
-      #browser-url-row { display: flex; align-items: center; }
+      #browser-url-row {
+        display: flex;
+        align-items: center;
+      }
 
       #viewport {
-        background: #1a1b26; height: 240px; display: flex; align-items: center;
-        justify-content: center; position: relative; overflow: hidden;
+        background: var(--clr-log);
+        height: 240px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
       }
       #viewport-placeholder {
-        display: flex; flex-direction: column; align-items: center; gap: 10px;
-        color: #4a4d6a; font-size: 13px; user-select: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        color: #4a4d6a;
+        font-size: 13px;
+        user-select: none;
       }
-      #viewport-placeholder .icon { font-size: 36px; }
+      #viewport-placeholder .icon {
+        font-size: 36px;
+      }
       #video-player {
-        width: 100%; height: 100%; object-fit: contain; display: none;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: none;
       }
 
       /* Tab bar */
       #tab-bar {
-        display: flex; border-bottom: 1px solid var(--clr-border);
-        background: #f6f7fb; flex-shrink: 0;
+        display: flex;
+        border-bottom: 1px solid var(--clr-border);
+        background: var(--clr-surface);
+        flex-shrink: 0;
       }
       .tab {
-        padding: 6px 16px; font-size: 12px; font-weight: 500;
-        cursor: pointer; color: var(--clr-txt-muted); border-bottom: 2px solid transparent;
-        transition: color .15s, border-color .15s;
+        padding: 6px 16px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        color: var(--clr-txt-muted);
+        border-bottom: 2px solid transparent;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
       }
-      .tab.active { color: var(--clr-accent); border-bottom-color: var(--clr-accent); }
-      .tab:hover:not(.active) { color: var(--clr-txt-sidebar); }
+      .tab.active {
+        color: var(--clr-accent);
+        border-bottom-color: var(--clr-accent);
+      }
+      .tab:hover:not(.active) {
+        color: var(--clr-txt-sidebar);
+      }
 
       /* Output / log panel */
       #output-panel {
-        flex: 1; min-height: 0; background: var(--clr-log); overflow: hidden;
-        display: flex; flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        background: var(--clr-log);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
       #log {
-        flex: 1; overflow-y: auto; padding: 10px 14px;
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 14px;
         font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
-        font-size: 12px; line-height: 1.7; color: var(--clr-txt-log);
-        white-space: pre-wrap; word-break: break-word;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--clr-txt-log);
+        white-space: pre-wrap;
+        word-break: break-word;
       }
-      .log-pass  { color: #9ece6a; }
-      .log-fail  { color: #f7768e; }
-      .log-warn  { color: #e0af68; }
-      .log-start { color: #7aa2f7; font-style: italic; }
-      .log-done  { font-weight: 700; }
+      .log-pass {
+        color: #9ece6a;
+      }
+      .log-fail {
+        color: #f7768e;
+      }
+      .log-warn {
+        color: #e0af68;
+      }
+      .log-start {
+        color: #7aa2f7;
+        font-style: italic;
+      }
+      .log-done {
+        font-weight: 700;
+      }
 
       /* Artifacts panel */
       #artifacts-panel {
-        display: none; flex: 1; min-height: 0; overflow-y: auto;
-        padding: 16px; background: var(--clr-main);
+        display: none;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 16px;
+        background: var(--clr-main);
       }
-      #artifacts-panel h3 { margin: 0 0 12px; font-size: 13px; color: var(--clr-txt-sidebar); }
-      .artifact-section { margin-bottom: 20px; }
-      .artifact-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-        color: var(--clr-txt-muted); margin: 0 0 8px; }
-      .artifact-list { display: flex; flex-direction: column; gap: 6px; }
+      #artifacts-panel h3 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        color: var(--clr-txt-sidebar);
+      }
+      .artifact-section {
+        margin-bottom: 20px;
+      }
+      .artifact-section h4 {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--clr-txt-muted);
+        margin: 0 0 8px;
+      }
+      .artifact-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
       .artifact-item {
-        display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-        border: 1px solid var(--clr-border); border-radius: var(--radius-sm);
-        background: #f6f7fb; font-size: 12px; color: var(--clr-txt-sidebar);
-        text-decoration: none; transition: border-color .15s, background .15s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px solid var(--clr-border);
+        border-radius: var(--radius-sm);
+        background: var(--clr-surface);
+        font-size: 12px;
+        color: var(--clr-txt-sidebar);
+        text-decoration: none;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
       }
-      .artifact-item:hover { border-color: var(--clr-accent); background: #eef0ff; }
-      .artifact-item .icon { font-size: 15px; flex-shrink: 0; }
-      .artifact-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .artifact-empty { color: var(--clr-txt-muted); font-size: 12px; padding: 8px 0; }
+      .artifact-item:hover {
+        border-color: var(--clr-accent);
+        background: var(--clr-hover);
+      }
+      .artifact-item .icon {
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .artifact-item .name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .artifact-empty {
+        color: var(--clr-txt-muted);
+        font-size: 12px;
+        padding: 8px 0;
+      }
 
       /* Loading spinner */
       #loading {
-        display: flex; align-items: center; gap: 8px;
-        padding: 20px; color: var(--clr-txt-muted); font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 20px;
+        color: var(--clr-txt-muted);
+        font-size: 12px;
         justify-content: center;
       }
       .spinner {
-        width: 16px; height: 16px; border-radius: 50%;
-        border: 2px solid var(--clr-border); border-top-color: var(--clr-accent);
-        animation: spin .7s linear infinite; flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid var(--clr-border);
+        border-top-color: var(--clr-accent);
+        animation: spin 0.7s linear infinite;
+        flex-shrink: 0;
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
       /* Scrollbars */
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #c8cce0; border-radius: 3px; }
-      #log::-webkit-scrollbar-thumb { background: #3a3d55; }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #c8cce0;
+        border-radius: 3px;
+      }
+      #log::-webkit-scrollbar-thumb {
+        background: var(--clr-surface);
+      }
 
       /* Responsive */
       @media (max-width: 680px) {
-        :root { --sidebar-w: 240px; }
-        #viewport { height: 160px; }
+        :root {
+          --sidebar-w: 240px;
+        }
+        #viewport {
+          height: 160px;
+        }
+      }
+
+      .td-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .td-field label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--clr-txt-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .td-input,
+      .td-select {
+        background: var(--clr-bg);
+        border: 1px solid var(--clr-border-drk);
+        color: var(--clr-txt-sidebar);
+        padding: 10px 14px;
+        border-radius: 6px;
+        outline: none;
+        font-size: 13px;
+        transition: border-color 0.2s;
+      }
+      .td-input:focus,
+      .td-select:focus {
+        border-color: var(--clr-accent);
+      }
+      .td-btn {
+        background: linear-gradient(135deg, #7c6af7, #a78bfa);
+        color: #fff;
+        border: none;
+        padding: 12px 24px;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        box-shadow: 0 2px 12px rgba(124, 106, 247, 0.4);
+      }
+      .td-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(124, 106, 247, 0.6);
+      }
+      .td-section.collapsed .td-section-body {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-
     <!-- ── Header ──────────────────────────────────────────────────────────── -->
     <header id="header">
       <div class="logo">🎭</div>
@@ -313,10 +794,21 @@
         <option value="">Loading pharmacies…</option>
       </select>
       <div class="spacer"></div>
-      <button class="hdr-btn" id="btn-run-all" disabled title="Run all tests for selected pharmacy">
+      <button id="theme-toggle" title="Toggle theme">🌓</button>
+      <button
+        class="hdr-btn"
+        id="btn-run-all"
+        disabled
+        title="Run all tests for selected pharmacy"
+      >
         ▶ Run All
       </button>
-      <button class="hdr-btn" id="btn-stop" style="display:none" title="Stop current run">
+      <button
+        class="hdr-btn"
+        id="btn-stop"
+        style="display: none"
+        title="Stop current run"
+      >
         ■ Stop
       </button>
     </header>
@@ -326,28 +818,57 @@
       <div id="status-dot" class="idle"></div>
       <span id="status-text">Select a pharmacy to load tests</span>
       <div id="status-counts">
-        <span class="cnt-pass" id="cnt-pass" style="display:none"></span>
-        <span class="cnt-fail" id="cnt-fail" style="display:none"></span>
-        <span class="cnt-skip" id="cnt-skip" style="display:none"></span>
+        <span class="cnt-pass" id="cnt-pass" style="display: none"></span>
+        <span class="cnt-fail" id="cnt-fail" style="display: none"></span>
+        <span class="cnt-skip" id="cnt-skip" style="display: none"></span>
       </div>
     </div>
 
     <!-- ── Body ────────────────────────────────────────────────────────────── -->
     <div id="body">
-
       <!-- Sidebar: test tree -->
       <nav id="sidebar">
         <div id="search-wrap">
-          <input id="search" type="search" placeholder="Filter tests…" autocomplete="off" />
+          <input
+            id="search"
+            type="search"
+            placeholder="Filter tests…"
+            autocomplete="off"
+          />
         </div>
         <div id="tree">
           <div class="empty-state">Select a pharmacy to load tests</div>
+        </div>
+        <div
+          id="queue-panel"
+          style="
+            display: none;
+            border-top: 1px solid var(--clr-border);
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+          "
+        >
+          <div
+            style="
+              font-size: 11px;
+              font-weight: bold;
+              text-transform: uppercase;
+              color: var(--clr-txt-muted);
+              margin-bottom: 8px;
+            "
+          >
+            Run Queue
+          </div>
+          <div
+            id="queue-list"
+            style="display: flex; flex-direction: column; gap: 4px"
+          ></div>
         </div>
       </nav>
 
       <!-- Main panel -->
       <main id="main">
-
         <!-- Browser chrome + viewport -->
         <div id="browser-chrome">
           <div id="browser-url-row">
@@ -371,11 +892,16 @@
         <div id="tab-bar">
           <div class="tab active" data-tab="output">Output</div>
           <div class="tab" data-tab="artifacts">Artifacts</div>
+          <div class="tab" data-tab="testdata">⚙ Test Data</div>
         </div>
 
         <!-- Output panel -->
         <div id="output-panel">
-          <div id="log"><span class="log-start">Ready. Select a pharmacy and run a test.</span></div>
+          <div id="log">
+            <span class="log-start"
+              >Ready. Select a pharmacy and run a test.</span
+            >
+          </div>
         </div>
 
         <!-- Artifacts panel -->
@@ -395,360 +921,1018 @@
           </div>
         </div>
 
+        <!-- Test Data panel -->
+        <div
+          id="testdata-panel"
+          style="
+            display: none;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 24px;
+          "
+        >
+          <h2
+            class="td-header-title"
+            style="
+              font-size: 18px;
+              font-weight: 600;
+              margin: 0 0 20px 0;
+              color: var(--clr-txt-header);
+            "
+          >
+            ⚙ Test Data Settings
+          </h2>
+          <form id="testdata-form">
+            <!-- User Info -->
+            <div
+              class="td-section collapsed"
+              style="
+                background: var(--clr-surface);
+                border: 1px solid var(--clr-border);
+                border-radius: 10px;
+                margin-bottom: 20px;
+                overflow: hidden;
+              "
+            >
+              <div
+                class="td-section-header"
+                onclick="this.parentElement.classList.toggle('collapsed')"
+                style="
+                  background: var(--clr-surface);
+                  padding: 14px 20px;
+                  font-weight: 600;
+                  font-size: 14px;
+                  cursor: pointer;
+                "
+              >
+                👤 User Info
+              </div>
+              <div
+                class="td-section-body"
+                style="
+                  padding: 20px;
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                  gap: 20px;
+                "
+              >
+                <div class="td-field">
+                  <label>First Name</label
+                  ><input type="text" name="firstName" class="td-input" />
+                </div>
+                <div class="td-field">
+                  <label>Last Name</label
+                  ><input type="text" name="lastName" class="td-input" />
+                </div>
+                <div class="td-field">
+                  <label>Email</label
+                  ><input type="text" name="email" class="td-input" />
+                </div>
+                <div class="td-field">
+                  <label>Phone</label
+                  ><input type="text" name="phone" class="td-input" />
+                </div>
+                <div class="td-field">
+                  <label>Postcode</label
+                  ><input type="text" name="postcode" class="td-input" />
+                </div>
+                <div class="td-field">
+                  <label>Gender</label>
+                  <select name="gender" class="td-select">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                <div class="td-field">
+                  <label>DOB Day (DD)</label
+                  ><input
+                    type="text"
+                    name="dobDay"
+                    class="td-input"
+                    placeholder="01"
+                  />
+                </div>
+                <div class="td-field">
+                  <label>DOB Month (MM)</label
+                  ><input
+                    type="text"
+                    name="dobMonth"
+                    class="td-input"
+                    placeholder="01"
+                  />
+                </div>
+                <div class="td-field">
+                  <label>DOB Year (YYYY)</label
+                  ><input
+                    type="text"
+                    name="dobYear"
+                    class="td-input"
+                    placeholder="1990"
+                  />
+                </div>
+                <div class="td-field">
+                  <label>Guardian Name</label
+                  ><input type="text" name="guardianName" class="td-input" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Appointment -->
+            <div
+              class="td-section"
+              style="
+                background: var(--clr-surface);
+                border: 1px solid var(--clr-border);
+                border-radius: 10px;
+                margin-bottom: 20px;
+                overflow: hidden;
+              "
+            >
+              <div
+                class="td-section-header"
+                onclick="this.parentElement.classList.toggle('collapsed')"
+                style="
+                  background: var(--clr-surface);
+                  padding: 14px 20px;
+                  font-weight: 600;
+                  font-size: 14px;
+                  cursor: pointer;
+                "
+              >
+                📅 Appointment Preferences
+              </div>
+              <div
+                class="td-section-body"
+                style="
+                  padding: 20px;
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                  gap: 20px;
+                "
+              >
+                <div class="td-field">
+                  <label>Appointment Type</label>
+                  <select name="appointmentType" class="td-select">
+                    <option value="Video">Video</option>
+                    <option value="Face to Face">Face to Face</option>
+                    <option value="Telephone">Telephone</option>
+                  </select>
+                </div>
+                <div class="td-field">
+                  <label>Preferred Date (e.g. 9 May)</label
+                  ><input
+                    type="text"
+                    name="preferredDate"
+                    class="td-input"
+                    placeholder="Leave blank for any"
+                  />
+                </div>
+                <div class="td-field">
+                  <label>Preferred Time (e.g. 09:00 AM)</label
+                  ><input
+                    type="text"
+                    name="preferredTime"
+                    class="td-input"
+                    placeholder="Leave blank for any"
+                  />
+                </div>
+                <div class="td-field" style="justify-content: center">
+                  <label
+                    class="td-check-row"
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                      font-size: 13px;
+                      margin-top: 10px;
+                    "
+                  >
+                    <input type="checkbox" name="useNextAvailableSlot" /> Use
+                    Next Available Slot
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment -->
+            <div
+              class="td-section collapsed"
+              style="
+                background: var(--clr-surface);
+                border: 1px solid var(--clr-border);
+                border-radius: 10px;
+                margin-bottom: 20px;
+                overflow: hidden;
+              "
+            >
+              <div
+                class="td-section-header"
+                onclick="this.parentElement.classList.toggle('collapsed')"
+                style="
+                  background: var(--clr-surface);
+                  padding: 14px 20px;
+                  font-weight: 600;
+                  font-size: 14px;
+                  cursor: pointer;
+                "
+              >
+                💳 Payment Card
+              </div>
+              <div
+                class="td-section-body"
+                style="
+                  padding: 20px;
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                  gap: 20px;
+                "
+              >
+                <div class="td-field">
+                  <label>Cardholder Name</label
+                  ><input type="text" name="cardholderName" class="td-input" />
+                </div>
+                <div class="td-field">
+                  <label>Card Number</label
+                  ><input type="text" name="cardNumber" class="td-input" />
+                </div>
+                <div class="td-field">
+                  <label>Expiry Date</label
+                  ><input
+                    type="text"
+                    name="expiryDate"
+                    class="td-input"
+                    placeholder="01/26"
+                  />
+                </div>
+                <div class="td-field">
+                  <label>Security Code</label
+                  ><input type="text" name="securityCode" class="td-input" />
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; margin-top: 20px">
+              <button type="submit" class="td-btn">Save Changes</button>
+              <span
+                id="save-status"
+                style="margin-left: 14px; font-size: 13px; font-weight: 500"
+              ></span>
+            </div>
+          </form>
+        </div>
       </main>
     </div>
 
     <script>
-    // ── State ──────────────────────────────────────────────────────────────────
-    let allTests = [];
-    let currentPharmacy = null;
-    let activeES = null;
-    let running = false;
-    let filterText = "";
+      // ── State ──────────────────────────────────────────────────────────────────
+      let allTests = [];
+      let currentPharmacy = null;
+      let activeES = null;
+      let running = false;
+      let filterText = "";
 
-    // ── DOM refs ───────────────────────────────────────────────────────────────
-    const pharmacySel  = document.getElementById("pharmacy-select");
-    const btnRunAll    = document.getElementById("btn-run-all");
-    const btnStop      = document.getElementById("btn-stop");
-    const statusDot    = document.getElementById("status-dot");
-    const statusText   = document.getElementById("status-text");
-    const cntPass      = document.getElementById("cnt-pass");
-    const cntFail      = document.getElementById("cnt-fail");
-    const cntSkip      = document.getElementById("cnt-skip");
-    const treeEl       = document.getElementById("tree");
-    const searchEl     = document.getElementById("search");
-    const logEl        = document.getElementById("log");
-    const videoEl      = document.getElementById("video-player");
-    const vpHolder     = document.getElementById("viewport-placeholder");
-    const browserUrl   = document.getElementById("browser-url");
-    const artifVideos  = document.getElementById("artifact-videos");
-    const artifTraces  = document.getElementById("artifact-traces");
+      // ── DOM refs ───────────────────────────────────────────────────────────────
+      const pharmacySel = document.getElementById("pharmacy-select");
+      const btnRunAll = document.getElementById("btn-run-all");
+      const btnStop = document.getElementById("btn-stop");
+      const statusDot = document.getElementById("status-dot");
+      const statusText = document.getElementById("status-text");
+      const cntPass = document.getElementById("cnt-pass");
+      const cntFail = document.getElementById("cnt-fail");
+      const cntSkip = document.getElementById("cnt-skip");
+      const treeEl = document.getElementById("tree");
+      const searchEl = document.getElementById("search");
+      const logEl = document.getElementById("log");
+      const videoEl = document.getElementById("video-player");
+      const vpHolder = document.getElementById("viewport-placeholder");
+      const browserUrl = document.getElementById("browser-url");
+      const artifVideos = document.getElementById("artifact-videos");
+      const artifTraces = document.getElementById("artifact-traces");
 
-    // ── Tabs ───────────────────────────────────────────────────────────────────
-    document.querySelectorAll(".tab").forEach(tab => {
-      tab.addEventListener("click", () => {
-        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        const which = tab.dataset.tab;
-        document.getElementById("output-panel").style.display   = which === "output"    ? "flex" : "none";
-        document.getElementById("artifacts-panel").style.display = which === "artifacts" ? "flex" : "none";
-      });
-    });
-
-    // ── Status helpers ─────────────────────────────────────────────────────────
-    function setStatus(state, text) {
-      statusDot.className = state;
-      statusText.textContent = text;
-    }
-    function hideCounts() {
-      [cntPass, cntFail, cntSkip].forEach(el => el.style.display = "none");
-    }
-    function showCounts(passed, failed, skipped) {
-      if (passed) { cntPass.textContent = `✓ ${passed}`; cntPass.style.display = ""; }
-      if (failed) { cntFail.textContent = `✗ ${failed}`; cntFail.style.display = ""; }
-      if (skipped) { cntSkip.textContent = `⊘ ${skipped}`; cntSkip.style.display = ""; }
-    }
-
-    // ── Log helpers ────────────────────────────────────────────────────────────
-    function appendLog(text, className) {
-      const line = document.createElement("div");
-      if (className) line.className = className;
-      line.textContent = text;
-      logEl.appendChild(line);
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-    function clearLog() {
-      logEl.innerHTML = "";
-    }
-    function classifyLog(text) {
-      if (/passed|✓|PASS/i.test(text)) return "log-pass";
-      if (/failed|✘|FAIL|Error|error/i.test(text)) return "log-fail";
-      if (/warn|Warning/i.test(text)) return "log-warn";
-      return "";
-    }
-
-    // ── Pharmacy load ──────────────────────────────────────────────────────────
-    async function loadPharmacies() {
-      try {
-        const res = await fetch("/api/pharmacies");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const list = await res.json();
-        pharmacySel.innerHTML = '<option value="">Select pharmacy…</option>';
-        list.forEach(p => {
-          const opt = document.createElement("option");
-          opt.value = p.name;
-          opt.textContent = p.name;
-          pharmacySel.appendChild(opt);
+      // ── Tabs ───────────────────────────────────────────────────────────────────
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document
+            .querySelectorAll(".tab")
+            .forEach((t) => t.classList.remove("active"));
+          tab.classList.add("active");
+          const which = tab.dataset.tab;
+          document.getElementById("output-panel").style.display =
+            which === "output" ? "flex" : "none";
+          document.getElementById("artifacts-panel").style.display =
+            which === "artifacts" ? "flex" : "none";
         });
-        setStatus("idle", "Select a pharmacy to load tests");
-      } catch (e) {
-        pharmacySel.innerHTML = '<option value="">Error loading pharmacies</option>';
-        setStatus("idle", "Failed to load pharmacies: " + e.message);
-      }
-    }
-
-    pharmacySel.addEventListener("change", () => {
-      const name = pharmacySel.value;
-      if (!name) { treeEl.innerHTML = '<div class="empty-state">Select a pharmacy to load tests</div>'; btnRunAll.disabled = true; return; }
-      currentPharmacy = name;
-      loadTests(name);
-    });
-
-    // ── Test list load ─────────────────────────────────────────────────────────
-    async function loadTests(pharmacyName) {
-      treeEl.innerHTML = '<div id="loading"><div class="spinner"></div>Loading tests…</div>';
-      btnRunAll.disabled = true;
-      setStatus("idle", `Loading tests for ${pharmacyName}…`);
-      try {
-        const res = await fetch(`/api/tests?project=${encodeURIComponent(pharmacyName)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        allTests = await res.json();
-        setStatus("idle", `${allTests.length} test${allTests.length !== 1 ? "s" : ""} — ${pharmacyName}`);
-        hideCounts();
-        renderTree(allTests);
-        btnRunAll.disabled = false;
-      } catch (e) {
-        treeEl.innerHTML = `<div class="empty-state">Error loading tests: ${e.message}</div>`;
-        setStatus("idle", "Failed to load tests");
-      }
-    }
-
-    // ── Tree builder ───────────────────────────────────────────────────────────
-    function renderTree(tests) {
-      const query = filterText.toLowerCase();
-      const visible = query
-        ? tests.filter(t => t.fullTitle.toLowerCase().includes(query) || t.file.toLowerCase().includes(query))
-        : tests;
-
-      if (visible.length === 0) {
-        treeEl.innerHTML = '<div class="empty-state">No tests match your filter</div>';
-        return;
-      }
-
-      // Group by file → suite
-      const byFile = {};
-      visible.forEach(t => {
-        if (!byFile[t.file]) byFile[t.file] = {};
-        const parts = (t.fullTitle || t.title).split(" > ");
-        const testName = parts[parts.length - 1];
-        const suite    = parts.length > 1 ? parts.slice(0, -1).join(" > ") : "__direct__";
-        if (!byFile[t.file][suite]) byFile[t.file][suite] = [];
-        byFile[t.file][suite].push({ ...t, _testName: testName });
       });
 
-      treeEl.innerHTML = "";
+      // ── Status helpers ─────────────────────────────────────────────────────────
+      function setStatus(state, text) {
+        statusDot.className = state;
+        statusText.textContent = text;
+      }
+      function hideCounts() {
+        [cntPass, cntFail, cntSkip].forEach(
+          (el) => (el.style.display = "none"),
+        );
+      }
+      function showCounts(passed, failed, skipped) {
+        if (passed) {
+          cntPass.textContent = `✓ ${passed}`;
+          cntPass.style.display = "";
+        }
+        if (failed) {
+          cntFail.textContent = `✗ ${failed}`;
+          cntFail.style.display = "";
+        }
+        if (skipped) {
+          cntSkip.textContent = `⊘ ${skipped}`;
+          cntSkip.style.display = "";
+        }
+      }
 
-      for (const [file, suites] of Object.entries(byFile)) {
-        const shortName = file.split("/").pop();
-        const fileDiv   = document.createElement("div");
-        fileDiv.className = "tree-file";
+      // ── Log helpers ────────────────────────────────────────────────────────────
+      function viewRun(id) {
+        currentlyViewingId = id;
+        const item = testQueue.find(q => q.id === id);
+        if (!item) return;
 
-        const fileHdr = document.createElement("div");
-        fileHdr.className = "tree-file-hdr open";
-        fileHdr.innerHTML = `
+        logEl.innerHTML = "";
+        if (item.savedLogs) {
+          item.savedLogs.forEach(l => {
+            const line = document.createElement("div");
+            if (l.className) line.className = l.className;
+            line.textContent = l.text;
+            logEl.appendChild(line);
+          });
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        updateArtifacts(item.artifacts || { videos: [], traces: [] });
+        
+        hideCounts();
+        if (item.counts) {
+           showCounts(item.counts.passed, item.counts.failed, item.counts.skipped);
+        }
+        
+        browserUrl.value = item.lastUrl || "about:blank";
+        updateQueueUI();
+      }
+
+      function appendLog(text, className) {
+        if (typeof testQueue !== 'undefined') {
+          const idx = testQueue.findIndex(q => q.id === currentRunId);
+          if (idx >= 0) {
+            if (!testQueue[idx].savedLogs) testQueue[idx].savedLogs = [];
+            testQueue[idx].savedLogs.push({ text, className });
+          }
+        }
+
+        if (typeof currentlyViewingId !== 'undefined' && currentlyViewingId !== null && currentlyViewingId !== currentRunId) {
+           return;
+        }
+
+        const line = document.createElement("div");
+        if (className) line.className = className;
+        line.textContent = text;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      function clearLog() {
+        logEl.innerHTML = "";
+      }
+      function classifyLog(text) {
+        if (/passed|✓|PASS/i.test(text)) return "log-pass";
+        if (/failed|✘|FAIL|Error|error/i.test(text)) return "log-fail";
+        if (/warn|Warning/i.test(text)) return "log-warn";
+        return "";
+      }
+
+      // ── Pharmacy load ──────────────────────────────────────────────────────────
+      let allPharmacies = [];
+      async function loadPharmacies() {
+        try {
+          const res = await fetch("/api/pharmacies");
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          allPharmacies = await res.json();
+          pharmacySel.innerHTML = '<option value="">Select pharmacy…</option>';
+          allPharmacies.forEach((p) => {
+            const opt = document.createElement("option");
+            opt.value = p.name;
+            opt.textContent = p.name;
+            pharmacySel.appendChild(opt);
+          });
+          setStatus("idle", "Select a pharmacy to load tests");
+        } catch (e) {
+          pharmacySel.innerHTML =
+            '<option value="">Error loading pharmacies</option>';
+          setStatus("idle", "Failed to load pharmacies: " + e.message);
+        }
+      }
+
+      pharmacySel.addEventListener("change", () => {
+        const name = pharmacySel.value;
+        if (!name) {
+          treeEl.innerHTML =
+            '<div class="empty-state">Select a pharmacy to load tests</div>';
+          btnRunAll.disabled = true;
+          return;
+        }
+        currentPharmacy = name;
+        loadTests(name);
+      });
+
+      // ── Test list load ─────────────────────────────────────────────────────────
+      async function loadTests(pharmacyName) {
+        treeEl.innerHTML =
+          '<div id="loading"><div class="spinner"></div>Loading tests…</div>';
+        btnRunAll.disabled = true;
+        setStatus("idle", `Loading tests for ${pharmacyName}…`);
+        try {
+          const res = await fetch(
+            `/api/tests?project=${encodeURIComponent(pharmacyName)}`,
+          );
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          allTests = await res.json();
+
+          try {
+            let sanityUrl = "/api/sanity-conditions";
+            const pObj = allPharmacies.find(p => p.name === pharmacyName);
+            if (pObj && pObj.baseURL) {
+              sanityUrl += `?url=${encodeURIComponent(pObj.baseURL)}`;
+            }
+            const sanityRes = await fetch(sanityUrl);
+            const sanityData = await sanityRes.json();
+            if (sanityData.result) {
+              window.sanityConditions = sanityData.result;
+            }
+          } catch (e) {
+            console.warn("Failed to fetch sanity conditions", e);
+          }
+
+          setStatus(
+            "idle",
+            `${allTests.length} test${allTests.length !== 1 ? "s" : ""} — ${pharmacyName}`,
+          );
+          hideCounts();
+          renderTree(allTests);
+          btnRunAll.disabled = false;
+        } catch (e) {
+          treeEl.innerHTML = `<div class="empty-state">Error loading tests: ${e.message}</div>`;
+          setStatus("idle", "Failed to load tests");
+        }
+      }
+
+      // ── Tree builder ───────────────────────────────────────────────────────────
+      function renderTree(tests) {
+        const query = filterText.toLowerCase();
+        const visible = query
+          ? tests.filter(
+              (t) =>
+                t.fullTitle.toLowerCase().includes(query) ||
+                t.file.toLowerCase().includes(query),
+            )
+          : tests;
+
+        if (visible.length === 0) {
+          treeEl.innerHTML =
+            '<div class="empty-state">No tests match your filter</div>';
+          return;
+        }
+
+        const byFile = {};
+        visible.forEach((t) => {
+          if (t.file.includes("condition-flow.spec.ts")) return;
+          if (!byFile[t.file]) byFile[t.file] = {};
+          const parts = (t.fullTitle || t.title).split(" > ");
+          const testName = parts[parts.length - 1];
+          const suite =
+            parts.length > 1 ? parts.slice(0, -1).join(" > ") : "__direct__";
+          if (!byFile[t.file][suite]) byFile[t.file][suite] = [];
+          byFile[t.file][suite].push({ ...t, _testName: testName });
+        });
+
+        if (window.sanityConditions) {
+          const nhs = window.sanityConditions.filter(
+            (c) => c.services && c.services.toLowerCase() === "nhs",
+          );
+          const priv = window.sanityConditions.filter(
+            (c) => c.services && c.services.toLowerCase() === "private",
+          );
+
+          if (nhs.length || priv.length) {
+            byFile["Sanity Conditions"] = {};
+            if (nhs.length) {
+              byFile["Sanity Conditions"]["NHS Conditions"] = nhs.map((c) => ({
+                title: c.title,
+                fullTitle:
+                  "complete conditions flow: Booking Page → signup → confirm page",
+                file: "tests/e2e/condition-flow.spec.ts",
+                _testName: c.title,
+                _slug: c.slug,
+              }));
+            }
+            if (priv.length) {
+              byFile["Sanity Conditions"]["Private Conditions"] = priv.map(
+                (c) => ({
+                  title: c.title,
+                  fullTitle:
+                    "complete conditions flow: Booking Page → signup → confirm page",
+                  file: "tests/e2e/condition-flow.spec.ts",
+                  _testName: c.title,
+                  _slug: c.slug,
+                }),
+              );
+            }
+          }
+        }
+
+        treeEl.innerHTML = "";
+
+        for (const [file, suites] of Object.entries(byFile)) {
+          const shortName = file.split("/").pop();
+          const fileDiv = document.createElement("div");
+          fileDiv.className = "tree-file";
+
+          const fileHdr = document.createElement("div");
+          fileHdr.className = "tree-file-hdr open";
+          fileHdr.innerHTML = `
           <span class="chevron">▶</span>
           <span class="file-icon">📄</span>
           <span class="file-name" title="${file}">${shortName}</span>
           <button class="run-file-btn" title="Run all tests in this file">Run</button>
         `;
-        fileHdr.querySelector(".run-file-btn").addEventListener("click", e => {
-          e.stopPropagation();
-          startRun({ file, label: shortName });
-        });
-        fileHdr.addEventListener("click", e => {
-          if (e.target.classList.contains("run-file-btn")) return;
-          fileHdr.classList.toggle("open");
-          childrenDiv.classList.toggle("open");
-        });
-
-        const childrenDiv = document.createElement("div");
-        childrenDiv.className = "tree-children open";
-
-        for (const [suite, sTests] of Object.entries(suites)) {
-          if (suite === "__direct__") {
-            sTests.forEach(t => childrenDiv.appendChild(makeTestNode(t, "suite-direct")));
-          } else {
-            const suiteHdr = document.createElement("div");
-            suiteHdr.className = "tree-suite-hdr open";
-            suiteHdr.innerHTML = `<span class="chevron">▶</span><span>${suite}</span>`;
-
-            const suiteChildren = document.createElement("div");
-            suiteChildren.className = "tree-children open";
-            sTests.forEach(t => suiteChildren.appendChild(makeTestNode(t)));
-
-            suiteHdr.addEventListener("click", () => {
-              suiteHdr.classList.toggle("open");
-              suiteChildren.classList.toggle("open");
+          fileHdr
+            .querySelector(".run-file-btn")
+            .addEventListener("click", (e) => {
+              e.stopPropagation();
+              startRun({ file, label: shortName });
             });
+          fileHdr.addEventListener("click", (e) => {
+            if (e.target.classList.contains("run-file-btn")) return;
+            fileHdr.classList.toggle("open");
+            childrenDiv.classList.toggle("open");
+          });
 
-            childrenDiv.appendChild(suiteHdr);
-            childrenDiv.appendChild(suiteChildren);
+          const childrenDiv = document.createElement("div");
+          childrenDiv.className = "tree-children open";
+
+          for (const [suite, sTests] of Object.entries(suites)) {
+            if (suite === "__direct__") {
+              sTests.forEach((t) =>
+                childrenDiv.appendChild(makeTestNode(t, "suite-direct")),
+              );
+            } else {
+              const suiteHdr = document.createElement("div");
+              suiteHdr.className = "tree-suite-hdr open";
+              suiteHdr.innerHTML = `<span class="chevron">▶</span><span>${suite}</span>`;
+
+              const suiteChildren = document.createElement("div");
+              suiteChildren.className = "tree-children open";
+              sTests.forEach((t) => suiteChildren.appendChild(makeTestNode(t)));
+
+              suiteHdr.addEventListener("click", () => {
+                suiteHdr.classList.toggle("open");
+                suiteChildren.classList.toggle("open");
+              });
+
+              childrenDiv.appendChild(suiteHdr);
+              childrenDiv.appendChild(suiteChildren);
+            }
           }
+
+          fileDiv.appendChild(fileHdr);
+          fileDiv.appendChild(childrenDiv);
+          treeEl.appendChild(fileDiv);
         }
-
-        fileDiv.appendChild(fileHdr);
-        fileDiv.appendChild(childrenDiv);
-        treeEl.appendChild(fileDiv);
       }
-    }
 
-    function makeTestNode(t, extraClass) {
-      const div = document.createElement("div");
-      div.className = "tree-test" + (extraClass ? " " + extraClass : "");
-      div.dataset.fullTitle = t.fullTitle || t.title;
-      div.innerHTML = `
+      function makeTestNode(t, extraClass) {
+        const div = document.createElement("div");
+        div.className = "tree-test" + (extraClass ? " " + extraClass : "");
+        div.dataset.fullTitle = t.fullTitle || t.title;
+        div.innerHTML = `
         <span class="test-dot" data-title="${t.fullTitle || t.title}"></span>
         <span class="test-name" title="${t.fullTitle || t.title}">${t._testName || t.title}</span>
         <button class="run-test-btn" title="Run this test">▶</button>
       `;
-      div.querySelector(".run-test-btn").addEventListener("click", e => {
-        e.stopPropagation();
-        startRun({ file: t.file, line: t.line, grep: t.fullTitle, label: t._testName || t.title });
-      });
-      div.addEventListener("click", e => {
-        if (e.target.classList.contains("run-test-btn")) return;
-        // just select without running
-        document.querySelectorAll(".tree-test").forEach(n => n.classList.remove("active"));
-        div.classList.add("active");
-      });
-      return div;
-    }
+        div.querySelector(".run-test-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          startRun({
+            file: t.file,
+            line: t.line,
+            grep: t.fullTitle,
+            label: t._testName || t.title,
+            slug: t._slug,
+          });
+        });
+        div.addEventListener("click", (e) => {
+          if (e.target.classList.contains("run-test-btn")) return;
+          // just select without running
+          document
+            .querySelectorAll(".tree-test")
+            .forEach((n) => n.classList.remove("active"));
+          div.classList.add("active");
+        });
+        return div;
+      }
 
-    // ── Search filter ──────────────────────────────────────────────────────────
-    searchEl.addEventListener("input", () => {
-      filterText = searchEl.value;
-      renderTree(allTests);
-    });
-
-    // ── Run ────────────────────────────────────────────────────────────────────
-    function startRun({ file, line, grep, label } = {}) {
-      if (running) return;
-      if (!currentPharmacy) { alert("Select a pharmacy first."); return; }
-
-      running = true;
-      clearLog();
-      hideCounts();
-      setStatus("running", `Running${label ? ": " + label : " all tests"}…`);
-      btnRunAll.style.display = "none";
-      btnStop.style.display   = "";
-      videoEl.style.display   = "none";
-      vpHolder.style.display  = "flex";
-      browserUrl.value = "Running…";
-
-      // Mark all dots as running (or just the targeted one)
-      const targets = file
-        ? treeEl.querySelectorAll(`.tree-test[data-full-title]`)
-        : treeEl.querySelectorAll(".tree-test");
-      treeEl.querySelectorAll(".test-dot").forEach(d => {
-        d.className = "test-dot";
+      // ── Search filter ──────────────────────────────────────────────────────────
+      searchEl.addEventListener("input", () => {
+        filterText = searchEl.value;
+        renderTree(allTests);
       });
 
-      // Build SSE URL
-      const params = new URLSearchParams({ project: currentPharmacy });
-      if (file)  params.set("file", file);
-      if (line)  params.set("line", line);
-      if (grep)  params.set("grep", grep);
-      if (label) params.set("label", label);
+      // ── Run ────────────────────────────────────────────────────────────────────
+      let queueIdSeq = 0;
+      let testQueue = [];
+      let currentRunId = null;
+      let currentlyViewingId = null;
+      const queuePanel = document.getElementById("queue-panel");
+      const queueList = document.getElementById("queue-list");
 
-      activeES = new EventSource(`/api/run-tests?${params}`);
-
-      activeES.onmessage = (e) => {
-        const { type, data } = JSON.parse(e.data);
-
-        if (type === "start") {
-          appendLog(data, "log-start");
-        } else if (type === "log") {
-          appendLog(data, classifyLog(data));
-          // Update URL bar if we see a URL-like string
-          const m = data.match(/https?:\/\/\S+/);
-          if (m) browserUrl.value = m[0];
-        } else if (type === "done") {
-          running = false;
-          activeES.close(); activeES = null;
-          btnStop.style.display   = "none";
-          btnRunAll.style.display = "";
-
-          const ok = data.success;
-          setStatus(ok ? "pass" : "fail", ok ? "All tests passed" : "Some tests failed");
-          if (data.passed || data.failed || data.skipped)
-            showCounts(data.passed, data.failed, data.skipped);
-
-          appendLog(
-            `\n── Run ${ok ? "✓ passed" : "✗ failed"} (code ${data.code}) ──`,
-            "log-done " + (ok ? "log-pass" : "log-fail")
-          );
-
-          // Artifacts
-          if (data.artifacts) {
-            updateArtifacts(data.artifacts);
-          }
+      function updateQueueUI() {
+        if (testQueue.length === 0) {
+          queuePanel.style.display = "none";
+          return;
         }
-      };
+        queuePanel.style.display = "block";
+        queueList.innerHTML = "";
+        testQueue.forEach((item, index) => {
+          const div = document.createElement("div");
+          div.style.fontSize = "12px";
+          div.style.padding = "6px 8px";
+          div.style.background = currentlyViewingId === item.id ? "var(--clr-hover)" : "var(--clr-surface)";
+          div.style.border = currentlyViewingId === item.id ? "1px solid var(--clr-accent)" : "1px solid var(--clr-border)";
+          div.style.borderRadius = "4px";
+          div.style.display = "flex";
+          div.style.justifyContent = "space-between";
+          div.style.cursor = "pointer";
+          div.onclick = () => viewRun(item.id);
 
-      activeES.onerror = () => {
-        if (!running) return;
+          let icon = "⏳";
+          let color = "inherit";
+          if (item.status === "running") {
+            icon =
+              '<div class="spinner" style="width: 12px; height: 12px; border-width: 2px; border-top-color: var(--clr-running); display: inline-block; vertical-align: middle;"></div>';
+            color = "var(--clr-running)";
+          } else if (item.status === "completed") {
+            if (item.result === "pass") {
+              icon = "✅";
+              color = "var(--clr-pass)";
+            } else {
+              icon = "❌";
+              color = "var(--clr-fail)";
+            }
+          }
+
+          div.innerHTML = `<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${color};">${icon} ${item.label || (item.file ? item.file.split("/").pop() : "All Tests")}</span>`;
+
+          if (item.status === "waiting") {
+            div.innerHTML += ` <button class="btn-cancel-q" style="background: none; border: none; cursor: pointer; font-size: 10px;" title="Remove from queue">X</button>`;
+            div.querySelector(".btn-cancel-q").onclick = () => {
+              testQueue.splice(index, 1);
+              updateQueueUI();
+            };
+          }
+          queueList.appendChild(div);
+        });
+        queueList.scrollTop = queueList.scrollHeight;
+      }
+
+      function processQueue() {
+        const nextIdx = testQueue.findIndex((q) => q.status === "waiting");
+        if (nextIdx >= 0) {
+          startRun(testQueue[nextIdx], true);
+        }
+      }
+
+      let cumulativeCounts = { passed: 0, failed: 0, skipped: 0 };
+
+      function startRun(opts = {}, fromQueue = false) {
+        const { file, line, grep, label, slug } = opts;
+        if (!currentPharmacy) {
+          alert("Select a pharmacy first.");
+          return;
+        }
+        if (running) {
+          if (!opts.id) {
+            testQueue.push({ ...opts, id: ++queueIdSeq, status: "waiting" });
+            updateQueueUI();
+          }
+          return;
+        }
+
+        running = true;
+        currentRunId = opts.id || ++queueIdSeq;
+        if (!opts.id) {
+          testQueue.push({ ...opts, id: currentRunId, status: "running" });
+        } else {
+          const idx = testQueue.findIndex((q) => q.id === currentRunId);
+          if (idx >= 0) testQueue[idx].status = "running";
+        }
+        updateQueueUI();
+        
+        clearLog();
+        hideCounts();
+        currentlyViewingId = currentRunId;
+        setStatus("running", `Running${label ? ": " + label : " all tests"}…`);
+        btnRunAll.style.display = "none";
+        btnStop.style.display = "";
+        videoEl.style.display = "none";
+        vpHolder.style.display = "flex";
+        browserUrl.value = "Running…";
+
+        // Mark all dots as running (or just the targeted one)
+        const targets = file
+          ? treeEl.querySelectorAll(`.tree-test[data-full-title]`)
+          : treeEl.querySelectorAll(".tree-test");
+        treeEl.querySelectorAll(".test-dot").forEach((d) => {
+          d.className = "test-dot";
+        });
+
+        // Build SSE URL
+        const params = new URLSearchParams({ project: currentPharmacy });
+        if (file) params.set("file", file);
+        if (line) params.set("line", line);
+        if (grep) params.set("grep", grep);
+        if (label) params.set("label", label);
+        if (arguments[0].slug) params.set("slug", arguments[0].slug);
+
+        activeES = new EventSource(`/api/run-tests?${params}`);
+
+        activeES.onmessage = (e) => {
+          const { type, data } = JSON.parse(e.data);
+
+          if (type === "start") {
+            appendLog(data, "log-start");
+          } else if (type === "log") {
+            appendLog(data, classifyLog(data));
+            // Update URL bar if we see a URL-like string
+            const m = data.match(/https?:\/\/\S+/);
+            if (m) {
+              if (currentlyViewingId === currentRunId || currentlyViewingId === null) {
+                 browserUrl.value = m[0];
+              }
+              const idx = testQueue.findIndex((q) => q.id === currentRunId);
+              if (idx >= 0) testQueue[idx].lastUrl = m[0];
+            }
+          } else if (type === "done") {
+            running = false;
+            activeES.close();
+            activeES = null;
+            btnStop.style.display = "none";
+            btnRunAll.style.display = "";
+
+            const ok = data.success;
+            setStatus(
+              ok ? "pass" : "fail",
+              ok ? "All tests passed" : "Some tests failed",
+            );
+            
+            // We only show counts for the currently running test if it's being viewed
+            if (currentlyViewingId === currentRunId || currentlyViewingId === null) {
+              if (data.passed || data.failed || data.skipped)
+                showCounts(data.passed, data.failed, data.skipped);
+            }
+
+            appendLog(
+              `\n── Run ${ok ? "✓ passed" : "✗ failed"} (code ${data.code}) ──`,
+              "log-done " + (ok ? "log-pass" : "log-fail"),
+            );
+
+            // Artifacts
+            if (data.artifacts) {
+              if (currentlyViewingId === currentRunId || currentlyViewingId === null) {
+                updateArtifacts(data.artifacts);
+              }
+            }
+            const idx = testQueue.findIndex((q) => q.id === currentRunId);
+            if (idx >= 0) {
+              testQueue[idx].status = "completed";
+              testQueue[idx].result = ok ? "pass" : "fail";
+              testQueue[idx].counts = { passed: data.passed||0, failed: data.failed||0, skipped: data.skipped||0 };
+              testQueue[idx].artifacts = data.artifacts || null;
+              updateQueueUI();
+            }
+            processQueue();
+          }
+        };
+
+        activeES.onerror = () => {
+          if (!running) return;
+          running = false;
+          activeES = null;
+          btnStop.style.display = "none";
+          btnRunAll.style.display = "";
+          setStatus("fail", "Connection error");
+          appendLog("Connection to server lost.", "log-fail");
+
+          const idx = testQueue.findIndex((q) => q.id === currentRunId);
+          if (idx >= 0) {
+            testQueue[idx].status = "completed";
+            testQueue[idx].result = "fail";
+            updateQueueUI();
+          }
+          processQueue();
+        };
+      }
+
+      btnRunAll.addEventListener("click", () => startRun());
+      btnStop.addEventListener("click", () => {
+        if (activeES) {
+          activeES.close();
+          activeES = null;
+        }
         running = false;
-        activeES = null;
-        btnStop.style.display   = "none";
+        testQueue = [];
+        updateQueueUI();
+        btnStop.style.display = "none";
         btnRunAll.style.display = "";
-        setStatus("fail", "Connection error");
-        appendLog("Connection to server lost.", "log-fail");
-      };
-    }
+        setStatus("idle", "Stopped");
+        appendLog("Run stopped by user.", "log-warn");
+      });
 
-    btnRunAll.addEventListener("click", () => startRun());
-    btnStop.addEventListener("click", () => {
-      if (activeES) { activeES.close(); activeES = null; }
-      running = false;
-      btnStop.style.display   = "none";
-      btnRunAll.style.display = "";
-      setStatus("idle", "Stopped");
-      appendLog("Run stopped by user.", "log-warn");
-    });
+      // ── Artifacts ──────────────────────────────────────────────────────────────
+      function updateArtifacts(artifacts) {
+        // Videos
+        if (artifacts.videos && artifacts.videos.length) {
+          artifVideos.innerHTML = "";
+          artifacts.videos.forEach((url, i) => {
+            const name = url.split("/").pop();
+            const a = document.createElement("a");
+            a.href = url;
+            a.target = "_blank";
+            a.className = "artifact-item";
+            a.innerHTML = `<span class="icon">📹</span><span class="name">${name}</span><span>↗</span>`;
+            artifVideos.appendChild(a);
+          });
+          // Auto-play latest video
+          const latest = artifacts.videos[artifacts.videos.length - 1];
+          videoEl.src = encodeURI(latest);
+          videoEl.style.display = "block";
+          vpHolder.style.display = "none";
+          videoEl.play().catch(() => {});
+          browserUrl.value = window.location.origin + latest;
+        } else {
+          artifVideos.innerHTML =
+            '<div class="artifact-empty">No videos captured.</div>';
+          videoEl.style.display = "none";
+          vpHolder.style.display = "flex";
+          videoEl.pause();
+          videoEl.removeAttribute('src');
+        }
 
-    // ── Artifacts ──────────────────────────────────────────────────────────────
-    function updateArtifacts(artifacts) {
-      // Videos
-      if (artifacts.videos && artifacts.videos.length) {
-        artifVideos.innerHTML = "";
-        artifacts.videos.forEach((url, i) => {
-          const name = url.split("/").pop();
-          const a = document.createElement("a");
-          a.href = url; a.target = "_blank";
-          a.className = "artifact-item";
-          a.innerHTML = `<span class="icon">📹</span><span class="name">${name}</span><span>↗</span>`;
-          artifVideos.appendChild(a);
-        });
-        // Auto-play latest video
-        const latest = artifacts.videos[artifacts.videos.length - 1];
-        videoEl.src = latest;
-        videoEl.style.display = "block";
-        vpHolder.style.display = "none";
-        videoEl.play().catch(() => {});
-        browserUrl.value = window.location.origin + latest;
-      } else {
-        artifVideos.innerHTML = '<div class="artifact-empty">No videos captured.</div>';
+        // Traces
+        if (artifacts.traces && artifacts.traces.length) {
+          artifTraces.innerHTML = "";
+          artifacts.traces.forEach((url) => {
+            const name = url.split("/").pop();
+            const traceViewUrl = `${window.location.origin}/trace-viewer/index.html?trace=${encodeURIComponent(window.location.origin + url)}`;
+            const a = document.createElement("a");
+            a.href = traceViewUrl;
+            a.target = "_blank";
+            a.className = "artifact-item";
+            a.innerHTML = `<span class="icon">🔍</span><span class="name">${name}</span><span>Open Trace Viewer ↗</span>`;
+            artifTraces.appendChild(a);
+          });
+        } else {
+          artifTraces.innerHTML =
+            '<div class="artifact-empty">No traces captured.</div>';
+        }
       }
 
-      // Traces
-      if (artifacts.traces && artifacts.traces.length) {
-        artifTraces.innerHTML = "";
-        artifacts.traces.forEach(url => {
-          const name = url.split("/").pop();
-          const traceViewUrl = `${window.location.origin}/trace-viewer/index.html?trace=${encodeURIComponent(window.location.origin + url)}`;
-          const a = document.createElement("a");
-          a.href = traceViewUrl; a.target = "_blank";
-          a.className = "artifact-item";
-          a.innerHTML = `<span class="icon">🔍</span><span class="name">${name}</span><span>Open Trace Viewer ↗</span>`;
-          artifTraces.appendChild(a);
-        });
-      } else {
-        artifTraces.innerHTML = '<div class="artifact-empty">No traces captured.</div>';
-      }
-    }
+      // ── Test Data ───────────────────────────────────────────────────────
+      const testdataForm = document.getElementById("testdata-form");
+      let currentTestData = {};
 
-    // ── Init ───────────────────────────────────────────────────────────────────
-    loadPharmacies();
+      async function loadTestData() {
+        try {
+          const res = await fetch("/api/test-data");
+          if (!res.ok) return;
+          currentTestData = await res.json();
+          const u = currentTestData.user || {};
+          const b = currentTestData.booking || {};
+          const p = currentTestData.payment || {};
+
+          testdataForm.elements["firstName"].value = u.firstName || "";
+          testdataForm.elements["lastName"].value = u.lastName || "";
+          testdataForm.elements["email"].value = u.email || "";
+          testdataForm.elements["phone"].value = u.phone || "";
+          testdataForm.elements["postcode"].value = u.postcode || "";
+          testdataForm.elements["gender"].value = u.gender || "male";
+          testdataForm.elements["dobDay"].value = u.dobDay || "";
+          testdataForm.elements["dobMonth"].value = u.dobMonth || "";
+          testdataForm.elements["dobYear"].value = u.dobYear || "";
+          testdataForm.elements["guardianName"].value = u.guardianName || "";
+
+          testdataForm.elements["appointmentType"].value =
+            b.appointmentType || "Video";
+          testdataForm.elements["useNextAvailableSlot"].checked =
+            !!b.useNextAvailableSlot;
+          testdataForm.elements["preferredDate"].value = b.preferredDate || "";
+          testdataForm.elements["preferredTime"].value = b.preferredTime || "";
+
+          testdataForm.elements["cardholderName"].value =
+            p.cardholderName || "";
+          testdataForm.elements["cardNumber"].value = p.cardNumber || "";
+          testdataForm.elements["expiryDate"].value = p.expiryDate || "";
+          testdataForm.elements["securityCode"].value = p.securityCode || "";
+        } catch (e) {}
+      }
+
+      testdataForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        document.getElementById("save-status").textContent = "Saving...";
+        const u = currentTestData.user || {};
+        const b = currentTestData.booking || {};
+        const p = currentTestData.payment || {};
+
+        u.firstName = testdataForm.elements["firstName"].value;
+        u.lastName = testdataForm.elements["lastName"].value;
+        u.email = testdataForm.elements["email"].value;
+        u.phone = testdataForm.elements["phone"].value;
+        u.postcode = testdataForm.elements["postcode"].value;
+        u.gender = testdataForm.elements["gender"].value;
+        u.dobDay = testdataForm.elements["dobDay"].value;
+        u.dobMonth = testdataForm.elements["dobMonth"].value;
+        u.dobYear = testdataForm.elements["dobYear"].value;
+        u.guardianName = testdataForm.elements["guardianName"].value;
+
+        b.appointmentType = testdataForm.elements["appointmentType"].value;
+        b.useNextAvailableSlot =
+          testdataForm.elements["useNextAvailableSlot"].checked;
+        b.preferredDate = testdataForm.elements["preferredDate"].value;
+        b.preferredTime = testdataForm.elements["preferredTime"].value;
+
+        p.cardholderName = testdataForm.elements["cardholderName"].value;
+        p.cardNumber = testdataForm.elements["cardNumber"].value;
+        p.expiryDate = testdataForm.elements["expiryDate"].value;
+        p.securityCode = testdataForm.elements["securityCode"].value;
+
+        currentTestData.user = u;
+        currentTestData.booking = b;
+        currentTestData.payment = p;
+
+        try {
+          const res = await fetch("/api/test-data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(currentTestData),
+          });
+          if (res.ok) {
+            document.getElementById("save-status").textContent = "Saved!";
+            document.getElementById("save-status").style.color =
+              "var(--clr-pass)";
+            setTimeout(
+              () => (document.getElementById("save-status").textContent = ""),
+              2000,
+            );
+          }
+        } catch (e) {}
+      });
+
+      document
+        .querySelectorAll("#testdata-form input, #testdata-form select")
+        .forEach((el) => {
+          el.addEventListener("input", () => {
+            testdataForm.dispatchEvent(new Event("submit"));
+          });
+        });
+
+      // Add logic to toggle panels
+      document.querySelectorAll(".tab").forEach((t) => {
+        t.addEventListener("click", () => {
+          document
+            .querySelectorAll(".tab")
+            .forEach((x) => x.classList.remove("active"));
+          t.classList.add("active");
+          const d = t.getAttribute("data-tab");
+          document.getElementById("output-panel").style.display =
+            d === "output" || d === "log" ? "flex" : "none";
+          document.getElementById("artifacts-panel").style.display =
+            d === "artifacts" ? "flex" : "none";
+          const td = document.getElementById("testdata-panel");
+          if (td) td.style.display = d === "testdata" ? "block" : "none";
+        });
+      });
+
+      loadTestData();
+
+      // ── Theme Management ────────────────────────────────────────────────────
+      const themeBtn = document.getElementById("theme-toggle");
+      const savedTheme = localStorage.getItem("playwright-theme") || "dark";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+
+      themeBtn.addEventListener("click", () => {
+        const isDark =
+          document.documentElement.getAttribute("data-theme") === "dark";
+        const newTheme = isDark ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("playwright-theme", newTheme);
+      });
+
+      // ── Init ───────────────────────────────────────────────────────────────────
+      loadPharmacies();
     </script>
   </body>
 </html>
